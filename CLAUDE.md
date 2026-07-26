@@ -216,13 +216,16 @@ no zone is assigned twice. Uncovered zones are surfaced, not hidden.
 `hexToRgba`, shadowing the one in `field-map.js` — the two are byte-identical,
 so it is harmless; keep them in sync if either changes.
 
-## Procurement — removed from the UI
+## Procurement — Channel3
 
-The procurement panel was **removed at the user's request** and `js/procure.js`
-is deleted. Do not re-add it. The server route `POST /api/purchase` (Channel3
-proxy) still exists and works, but nothing on the dashboard calls it — leave it
-in place unless asked; if it is ever wired back up, the old rule stands: on any
-failure show a clearly-labelled estimate, never a fake confirmation.
+Removed once, then **re-added at the user's request** — the procurement panel
+sits at the bottom of the left column and `js/procure.js` is back. `POST
+/api/purchase` proxies to `https://api.trychannel3.com/v0/search` server-side
+and returns real listings: title, brand, vendor domain, live unit price, stock
+status, buy link, and the line total for the prescribed volume.
+`CHANNEL3_API_KEY` lives in `.env` only and never reaches the browser; the
+tracked `.env.example` keeps a blank placeholder. On any failure the UI shows a
+clearly-labelled estimate, never a fake confirmation.
 
 ## Credentials
 

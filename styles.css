@@ -953,3 +953,84 @@ body {
   text-transform: uppercase;
   color: var(--muted);
 }
+
+/* ---------- Procurement (Channel3) ---------- */
+
+.procure-row {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.procure-row:last-child { margin-bottom: 0; }
+
+.procure-info {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 12px;
+}
+
+.procure-name { font-weight: 600; flex: 1; }
+
+.procure-qty { color: var(--muted); font-size: 13px; }
+
+.sourcing-note { color: var(--muted); font-size: 12px; margin-top: 10px; }
+
+.src-badge {
+  font-family: var(--font-num);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: rgba(74, 222, 128, 0.14);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+.listings { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 12px; }
+
+.listing {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.listing-img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  border-radius: 4px;
+  background: var(--bg);
+  flex: none;
+}
+
+.listing-img.placeholder { display: inline-block; }
+
+.listing-main { flex: 1; min-width: 0; }
+
+.listing-title {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.listing-meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
+
+.stock-in { color: var(--accent); }
+.stock-out { color: #EC6B64; }
+
+.listing-price { text-align: right; flex: none; }
+
+.listing-price > .num { font-size: 14px; font-weight: 600; }
+
+.listing-line { color: var(--muted); font-size: 11px; }
+
+.listing-buy { flex: none; font-size: 12px; padding: 6px 12px; text-decoration: none; }
