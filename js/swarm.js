@@ -222,6 +222,7 @@ function planSwarmRoutes(data, fleetOverride) {
       id: d.id,
       carries: d.carries,
       tank_gal: d.tank_gal,
+      home: { x: d.x, y: d.y },
       gal_used: +(d.tank_gal - d.remainingGal).toFixed(2),
       gal_remaining: +d.remainingGal.toFixed(2),
       battery_km: d.battery_km,
@@ -238,3 +239,146 @@ function planSwarmRoutes(data, fleetOverride) {
     alternatives
   };
 }
+
+// ---------------------------------------------------------------------
+// Integration seam: window.initSwarm(mountEl, field), called by
+// js/swarm-mount.js on drones.html. Renders an animated flight-path
+// simulation into mountEl and calls window.FieldLoop.onZonesUpdated(zones)
+// once every drone has finished its route.
+// ---------------------------------------------------------------------
+
+const SWARM_COLORS = ["#5AD4C8", "#EC6B64", "#D0A5E8", "#8FBF6F", "#F2D857", "#7FA8F5"];
+
+let _swarmRaf = null;
+
+function initSwarm(mountEl, field) {
+  if (_swarmRaf) cancelAnimationFrame(_swarmRaf);
+
+  // The drone page persists its configured roster into field.fleet — honor
+  // that when present. Only fall back to a random fleet if nothing's been
+  // configured yet (e.g. first load before the user sets anything up).
+  const fleet = (Array.isArray(field.fleet) && field.fleet.length)
+    ? loadFixedFleet(field)
+    : generateRandomFleet(4, field);
+  const plan = planSwarmRoutes(field, fleet);
+
+  mountEl.innerHTML =
+    '<div class="swarm-stats" id="swarm-stats"></div>' +
+    '<canvas class="swarm-canvas" id="swarm-canvas"></canvas>' +
+    '<div class="swarm-strategy" id="swarm-strategy"></div>';
+
+  const canvas = mountEl.querySelector('#swarm-canvas');
+  const aspect = field.meta.image_size[1] / field.meta.image_size[0];
+  const W = canvas.width = 640;
+  const H = canvas.height = Math.round(640 * aspect);
+  const ctx = canvas.getContext('2d');
+
+  const img = new Image();
+  img.src = 'assets/' + field.meta.image;
+
+  const drones = plan.drones.map((d, i) => ({
+    ...d,
+    color: SWARM_COLORS[i % SWARM_COLORS.length],
+    x: d.home.x * W,
+    y: d.home.y * H,
+    routeIdx: 0
+  }));
+  const treatedIds = new Set();
+
+  const strategyEl = mountEl.querySelector('#swarm-strategy');
+  strategyEl.textContent = 'Strategy: ' + plan.strategy + ' (score ' + plan.metrics.score +
+    ', ' + plan.metrics.pctCovered + '% of treatable zones covered)';
+
+  function updateStats() {
+    const statsEl = mountEl.querySelector('#swarm-stats');
+    if (!statsEl) return;
+    const totalGal = drones.reduce((s, d) => s + d.gal_used, 0);
+    const activeCount = drones.filter(d => d.routeIdx < d.route.length).length;
+    statsEl.innerHTML =
+      '<span>' + treatedIds.size + ' / ' + plan.metrics.treatableCount + ' zones treated</span>' +
+      '<span>' + totalGal.toFixed(1) + ' gal used</span>' +
+      '<span>' + activeCount + ' / ' + drones.length + ' drones active</span>';
+  }
+
+  function draw() {
+    ctx.fillStyle = '#0F1419';
+    ctx.fillRect(0, 0, W, H);
+    if (img.complete && img.naturalWidth) ctx.drawImage(img, 0, 0, W, H);
+
+    for (const z of field.zones) {
+      if (z.treatment_id === 'none') continue;
+      const t = field.treatments[z.treatment_id];
+      const px = z.x * W, py = z.y * H;
+      const r = 6 + z.area_acres * 3;
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.fillStyle = treatedIds.has(z.id) ? 'rgba(139,152,165,0.35)' : hexToRgba(t.color, 0.55);
+      ctx.fill();
+      ctx.strokeStyle = t.color;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+
+    for (const d of drones) {
+      const target = d.route[d.routeIdx];
+      if (target) {
+        ctx.strokeStyle = d.color + '77';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(d.x, d.y);
+        for (let i = d.routeIdx; i < d.route.length; i++) ctx.lineTo(d.route[i].x * W, d.route[i].y * H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, 7, 0, Math.PI * 2);
+      ctx.fillStyle = d.color;
+      ctx.fill();
+      ctx.strokeStyle = '#0F1419';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  }
+
+  const SPEED = 4, ARRIVE = 5;
+  function tick() {
+    let anyMoving = false;
+    for (const d of drones) {
+      const target = d.route[d.routeIdx];
+      if (!target) continue;
+      anyMoving = true;
+      const tx = target.x * W, ty = target.y * H;
+      const dx = tx - d.x, dy = ty - d.y;
+      const dist = Math.hypot(dx, dy);
+      if (dist < ARRIVE) {
+        treatedIds.add(target.zone_id);
+        d.routeIdx++;
+        updateStats();
+      } else {
+        d.x += (dx / dist) * SPEED;
+        d.y += (dy / dist) * SPEED;
+      }
+    }
+    draw();
+    if (anyMoving) {
+      _swarmRaf = requestAnimationFrame(tick);
+    } else if (typeof window.FieldLoop !== 'undefined' && window.FieldLoop.onZonesUpdated) {
+      window.FieldLoop.onZonesUpdated(field.zones);
+    }
+  }
+
+  updateStats();
+  img.onload = draw;
+  draw();
+  _swarmRaf = requestAnimationFrame(tick);
+}
+
+function hexToRgba(hex, alpha) {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha.toFixed(2) + ')';
+}
+
+window.initSwarm = initSwarm;

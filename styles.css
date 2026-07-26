@@ -588,6 +588,30 @@ body {
   font-size: 14px;
 }
 
+.swarm-stats {
+  display: flex;
+  gap: 18px;
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 13px;
+  color: var(--text);
+  margin-bottom: 10px;
+}
+
+.swarm-canvas {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.swarm-strategy {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .order-card {
   margin-top: 16px;
   border: 1px solid var(--border);

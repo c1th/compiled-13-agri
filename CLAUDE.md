@@ -117,11 +117,16 @@ routing logic, no DOM. It is **not** yet wired to a page.
 and calls `window.initSwarm(mountEl, field)` if that function exists, otherwise
 renders a bordered placeholder.
 
-**Known gap:** their entry point is `planSwarmRoutes()`, ours looks for
-`window.initSwarm()` — so the mount currently shows the placeholder. Their
-module also reads `data.fleet`, which the analysis plan populates from the
-drone page config. Resolve the entry-point mismatch with the teammate before
-demo; do not unilaterally rewrite their module.
+**Resolved:** `js/swarm.js` now also exposes `window.initSwarm(mountEl, field)`,
+wired into `drones.html` after `js/swarm-mount.js`. It reads `field.fleet` when
+the drone page has configured one (falls back to a random fleet only if empty),
+picks the best of three routing strategies via `planSwarmRoutes`, animates
+drone markers along their routes on a canvas in `#swarm-mount`, and calls
+`window.FieldLoop.onZonesUpdated(field.zones)` once every drone finishes.
+Styled to the dark theme (`--bg`/`--panel`/`--border`/`--text`/`--muted`,
+monospace tabular-nums for the stats row). Not yet verified in a real browser
+from this session — no Node/browser automation available in this sandbox: test
+in a real run and report back if the canvas doesn't render or console errors.
 
 ## Log
 
