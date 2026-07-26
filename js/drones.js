@@ -45,7 +45,7 @@ function resetDronesPage() {
   });
   safeCall('assignments', () => {
     document.getElementById('assignments-body').innerHTML =
-      '<span class="procure-empty">Configure the fleet, then click &ldquo;Recommend assignments&rdquo;.</span>';
+      '<span class="empty-note">Configure the fleet, then click &ldquo;Recommend assignments&rdquo;.</span>';
   });
   safeCall('swarm', () => initSwarmMount(data));
 
@@ -232,7 +232,7 @@ function renderAssignments() {
     const pct = Math.round((r.used / r.drone.tank_gal) * 100);
     const zoneList = r.zones.length
       ? r.zones.map((z) => '<span class="assign-zone num">' + z.id + ' &middot; ' + z.volume_gal.toFixed(1) + ' gal</span>').join('')
-      : '<span class="procure-empty">No matching zones in range of this tank.</span>';
+      : '<span class="empty-note">No matching zones in range of this tank.</span>';
     const card = document.createElement('div');
     card.className = 'assign-card';
     card.innerHTML =

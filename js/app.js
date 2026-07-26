@@ -94,5 +94,4 @@ registerPanel('breakdown', initBreakdown);
 registerPanel('analyze', initAnalyze);
 registerPanel('impact', initImpact);
 registerPanel('fleet', initFleet);
-registerPanel('procure', initProcure);
 registerPanel('rnai', initRnaiEntry);

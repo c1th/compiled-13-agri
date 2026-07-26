@@ -186,7 +186,7 @@ function renderFleet(data) {
   const products = treatableProducts(data);
 
   if (!products.length) {
-    body.innerHTML = '<span class="procure-empty">Run the analysis first — drones carry the products it prescribes.</span>';
+    body.innerHTML = '<span class="empty-note">Run the analysis first — drones carry the products it prescribes.</span>';
     return;
   }
 
@@ -310,7 +310,7 @@ function renderRoutes(result, data) {
   const body = document.getElementById('routes-body');
   if (!body) return;
   if (!result) {
-    body.innerHTML = '<span class="procure-empty">Configure the fleet, then calculate routes.</span>';
+    body.innerHTML = '<span class="empty-note">Configure the fleet, then calculate routes.</span>';
     return;
   }
 

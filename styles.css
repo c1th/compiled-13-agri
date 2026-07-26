@@ -48,16 +48,6 @@ body {
 
 /* ---------- Layout grid ---------- */
 
-.layout {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 20px;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 24px 32px 48px;
-}
-
-.layout > * { grid-column: 1 / -1; }
 
 /* ---------- Panels (shared) ---------- */
 
@@ -80,7 +70,6 @@ body {
 
 /* ---------- Field map ---------- */
 
-.map-panel { grid-column: 1; }
 
 .map-toolbar {
   display: flex;
@@ -392,7 +381,6 @@ body {
 
 /* ---------- Analyze bar ---------- */
 
-.analyze-panel { grid-column: 1 / -1; }
 
 .analyze-bar {
   display: flex;
@@ -410,7 +398,6 @@ body {
 
 /* ---------- Treatment breakdown ---------- */
 
-.breakdown-panel { grid-column: 2; }
 
 .tb-group {
   border: 1px solid var(--border);
@@ -484,37 +471,12 @@ body {
 
 .kv-row > span:first-child { color: var(--muted); }
 
-/* ---------- Procurement ---------- */
-
-.procure-panel { grid-column: 1 / -1; }
-
-.procure-row {
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 14px 16px;
-  margin-bottom: 12px;
-}
-
-.procure-row:last-child { margin-bottom: 0; }
-
-.procure-info {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  margin-bottom: 12px;
-}
-
-.procure-name { font-weight: 600; flex: 1; }
-
-.procure-qty { color: var(--muted); font-size: 13px; }
-
 /* ---------- Drone operations page ---------- */
 
 .brand-sub { color: var(--muted); font-weight: 400; font-size: 14px; }
 
 .drone-map-panel { grid-row: auto; }
 
-.drone-config-panel { grid-column: 2; }
 
 .drone-row {
   display: flex;
@@ -573,7 +535,6 @@ body {
   z-index: 4;
 }
 
-.assignments-panel { grid-column: 1 / -1; }
 
 .assignments-body {
   display: grid;
@@ -634,7 +595,6 @@ body {
 
 /* ---------- Swarm mount ---------- */
 
-.swarm-panel { grid-column: 1 / -1; }
 
 .swarm-placeholder {
   display: flex;
@@ -731,71 +691,8 @@ body {
 }
 
 
-/* ---------- Supplier listings (Channel3) ---------- */
-
-.sourcing-note { color: var(--muted); font-size: 12px; margin-top: 10px; }
-
-.src-badge {
-  font-family: var(--font-num);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--accent);
-  background: rgba(74, 222, 128, 0.14);
-  border-radius: 4px;
-  padding: 2px 7px;
-}
-
-.listings { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 12px; }
-
-.listing {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 10px 12px;
-}
-
-.listing-img {
-  width: 42px;
-  height: 42px;
-  object-fit: contain;
-  border-radius: 4px;
-  background: var(--bg);
-  flex: none;
-}
-
-.listing-img.placeholder { display: inline-block; }
-
-.listing-main { flex: 1; min-width: 0; }
-
-.listing-title {
-  font-size: 13px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.listing-meta { color: var(--muted); font-size: 11px; margin-top: 2px; }
-
-.stock-in { color: var(--accent); }
-.stock-out { color: #EC6B64; }
-
-.listing-price { text-align: right; flex: none; }
-
-.listing-price > .num { font-size: 14px; font-weight: 600; }
-
-.listing-line { color: var(--muted); font-size: 11px; }
-
-.listing-buy { flex: none; font-size: 12px; padding: 6px 12px; text-decoration: none; }
-
 /* ---------- Drone fleet ---------- */
 
-.fleet-panel { grid-column: 1 / -1; }
-.routes-panel { grid-column: 1 / -1; }
 
 .fleet-head-row,
 .fleet-row {
@@ -855,140 +752,206 @@ body {
 .meter-label { color: var(--muted); }
 .meter-value { color: var(--text); text-align: right; }
 
-/* ---------- System output dock ---------- */
-/* Fixed to the bottom of the viewport so it stays put while the page scrolls. */
 
-body.has-dock { padding-bottom: 306px; }
-body.has-dock.dock-collapsed { padding-bottom: 54px; }
+/* ---------- Two-column shell ---------- */
+/* Main column scrolls; the right rail is pinned, with the system output
+   occupying its bottom quarter so it is always on screen. */
 
-.trace-dock {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 900;
-  background: #0B0F13;
-  border-top: 1px solid var(--border);
-  box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.55);
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 20px;
+  max-width: 1560px;
+  margin: 0 auto;
+  padding: 20px 28px 32px;
+  align-items: start;
 }
 
-.trace-dock-bar {
+.col-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+.col-rail {
+  position: sticky;
+  top: 20px;
+  height: calc(100vh - 52px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* Distribution + fleet share the upper three quarters and scroll together. */
+.rail-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-right: 2px;
+}
+
+/* System output: bottom quarter of the rail, fixed height, scrolls internally. */
+.rail-log {
+  flex: 0 0 26%;
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.rail-log .trace-dock-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 9px 20px;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  flex: none;
+}
+
+.rail-log .trace-dock-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex: 1;
+}
+
+.rail-log .trace-count { font-size: 10px; color: var(--muted); }
+
+.rail-log .trace-btn { font-size: 10px; padding: 3px 9px; }
+
+.rail-log .trace-log {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 14px 12px;
+  font-size: 11.5px;
+}
+
+/* Denser log rows for the narrower rail. */
+.rail-log .trace-time { width: 34px; font-size: 9px; }
+.rail-log .trace-tag { width: 56px; font-size: 8.5px; }
+.rail-log .trace-chip { font-size: 9.5px; padding: 1px 6px; }
+.rail-log .trace-think { font-size: 11px; }
+
+.fleet-panel .fleet-head-row,
+.fleet-panel .fleet-row {
+  grid-template-columns: 52px minmax(0, 1fr) 74px 74px 24px;
+}
+
+/* Launch-point button moves under the row in the narrow rail. */
+.fleet-panel .pick-origin {
+  grid-column: 1 / -1;
+  justify-self: start;
+  font-size: 11px;
+  padding: 4px 9px;
+  margin-top: 2px;
+}
+
+.fleet-panel .fleet-head-row span:nth-child(5) { display: none; }
+
+.empty-note { color: var(--muted); font-size: 13px; }
+
+/* ---------- Field impact ---------- */
+
+.impact-hero {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 4px 0 16px;
   border-bottom: 1px solid var(--border);
 }
 
-.trace-dock-title {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  color: var(--text);
-}
-
-.trace-dock-sub { font-size: 11px; color: var(--muted); flex: 1; }
-
-.trace-count { font-size: 11px; color: var(--muted); }
-
-.trace-btn { font-size: 11px; padding: 4px 10px; }
-
-.trace-log {
-  height: 250px;
-  overflow-y: auto;
-  padding: 10px 20px 14px;
-  font-size: 12px;
-}
-
-.trace-dock.collapsed .trace-log { display: none; }
-
-/* Run separator */
-
-.trace-run {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  margin: 14px 0 8px;
-  padding-top: 10px;
-  border-top: 1px solid var(--border);
-}
-
-.trace-run:first-child { margin-top: 0; padding-top: 0; border-top: none; }
-
-.trace-run-n {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+.impact-hero-num {
+  font-size: 56px;
+  line-height: 1;
+  font-weight: 600;
   color: var(--accent);
-  background: rgba(74, 222, 128, 0.12);
-  border-radius: 4px;
-  padding: 2px 8px;
+  letter-spacing: -0.02em;
 }
 
-.trace-run-title { font-size: 12px; font-weight: 600; flex: 1; }
+.impact-hero-num span { font-size: 24px; margin-left: 2px; }
 
-.trace-run-time { font-size: 10px; color: var(--muted); }
+.impact-hero-side { flex: 1 1 auto; min-width: 0; }
 
-/* Log rows */
-
-.trace-row {
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
-  padding: 5px 0;
-  line-height: 1.5;
-}
-
-.trace-time { color: var(--muted); font-size: 10px; width: 44px; flex: none; text-align: right; }
-
-.trace-tag {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  width: 66px;
-  flex: none;
-  border-radius: 3px;
-  padding: 2px 0;
-  text-align: center;
-}
-
-.trace-row.src   .trace-tag { background: rgba(90, 155, 212, 0.16); color: #7FB6E8; }
-.trace-row.cmp   .trace-tag { background: rgba(232, 163, 61, 0.16); color: #E8A33D; }
-.trace-row.mdl   .trace-tag { background: rgba(123, 75, 148, 0.24); color: #C89BE0; }
-.trace-row.chk   .trace-tag { background: rgba(74, 222, 128, 0.14); color: var(--accent); }
-.trace-row.wrn   .trace-tag { background: rgba(236, 107, 100, 0.16); color: #EC6B64; }
-.trace-row.think .trace-tag { background: rgba(139, 152, 165, 0.14); color: var(--muted); }
-
-.trace-body { flex: 1; min-width: 0; }
-
-.trace-label { font-weight: 600; color: var(--text); }
-
-/* Detail split into chips so dense technical lines stay scannable. */
-.trace-detail {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-top: 4px;
-}
-
-.trace-chip {
-  font-family: var(--font-num);
-  font-variant-numeric: tabular-nums;
-  font-size: 10.5px;
+.impact-hero-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--muted);
-  background: rgba(139, 152, 165, 0.09);
-  border: 1px solid rgba(42, 52, 65, 0.9);
-  border-radius: 4px;
-  padding: 2px 7px;
+  margin-bottom: 8px;
 }
 
-.trace-think {
-  color: #A8B4C0;
-  font-style: italic;
-  white-space: pre-wrap;
-  display: block;
-  max-width: 90ch;
+.impact-bar {
+  height: 10px;
+  border-radius: 5px;
+  background: #22303C;
+  overflow: hidden;
+}
+
+.impact-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 5px;
+}
+
+.impact-bar-legend {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.impact-legend-gap { flex: 1 1 auto; }
+
+.impact-rows { display: flex; flex-direction: column; }
+
+.impact-row {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.impact-row:last-child { border-bottom: none; }
+
+.impact-row-val {
+  flex: 0 0 116px;
+  text-align: right;
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.impact-unit {
+  font-family: var(--font-num);
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+.impact-row-text { flex: 1 1 auto; min-width: 0; }
+
+.impact-row-label { font-size: 14px; }
+
+.impact-row-sub { font-size: 12px; color: var(--muted); }
+
+.impact-flag {
+  margin-top: 12px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 
 /* ---------- PENUMBRA safety workflow ---------- */

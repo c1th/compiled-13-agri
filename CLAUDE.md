@@ -113,12 +113,14 @@ user's request — `index.html` is the whole product now. `drones.html`,
 `js/swarm.js`, `js/swarm-mount.js` and `js/field-3d.js` still exist and belong
 to the teammate; do not wire navigation back to them without being asked.
 
-- `index.html` — dashboard: how-to-use steps, location search, map with band
-  selector and multi-region drawing, weighted treatment layer, recommended
-  distribution, pesticide shed, run-analysis bar, impact strip, procurement.
-  (The old KPI row and old inventory panel were removed on request; the shed
-  and impact strip are their 2026-07-25 replacements, built to different
-  rules — see the sections below.)
+- `index.html` — dashboard, laid out as **two columns** (`.layout`:
+  `minmax(0,1fr) 420px`). Left (`.col-main`): how-to-use steps, location search,
+  map with band selector and multi-region drawing, weighted treatment layer,
+  run-analysis bar, field impact, calculate-routes bar, flight plan. Right
+  (`.col-rail`, sticky, full viewport height): a scrolling area holding
+  recommended distribution + drone fleet, with the system output console
+  (`.rail-log`) pinned to the bottom quarter of the rail. Removed on request:
+  the KPI row, the inventory panel, the pesticide shed, and procurement.
 - `drones.html` — drone operations: static zone map, per-drone config
   (origin via map click, pesticide, tank gallons), recommended assignments,
   swarm mount.
@@ -126,7 +128,8 @@ to the teammate; do not wire navigation back to them without being asked.
   distribution), `map-panel.js` (Leaflet map, regions, search), `bands.js`
   (spectral views + land-cover check), `field-map.js` (static map, also the
   offline fallback), `weighted-map.js` (classified treatment raster),
-  `analyze.js`, `procure.js`, `drones.js`, `swarm-mount.js` (integration seam).
+  `analyze.js`, `impact.js`, `fleet.js`, `trace.js` (system console),
+  `drones.js`, `swarm-mount.js` (integration seam).
 - `data/` — `zones.js` (FIELD), `stub-zones.js` (STUB fallback),
   `catalog.js` (biological catalog, mirrors the one in `server.js`).
 - `vendor/` — Leaflet and three.js, committed for offline use.
@@ -189,16 +192,9 @@ availability is assumed unlimited because more can always be bought. Rates
 step up 1.25x on zones with severity > 0.8. Keep the two catalog copies in
 sync when editing.
 
-**Pesticide shed (re-added 2026-07-25 at the user's request, in a new form —
-supersedes the old "no inventory input" rule).** `js/shed.js` +
-`data/crops.js`: the grower records what they already have, with a crop
-dropdown that surfaces common products per crop (short local crop→pest→product
-DB) and an AI path (`/api/crop-intel`) where Claude identifies the crop from
-the region coordinates and generates a tailored list. The hard rule that
-survives: **stock never constrains the prescription** — the plan is still
-optimal; on-hand gallons only net down the procurement order quantities
-(`initProcure` reads `getShedInventory()`). Shed state lives in localStorage
-(`fieldloop_shed`) and is cleared by the "R" reset.
+The pesticide shed was added on 2026-07-25 and **removed again later the same
+day at the user's request** — `js/shed.js` is deleted. There is no inventory
+input anywhere; the prescription is unconstrained and always optimal.
 
 ## Drone fleet and routing — on the dashboard
 
@@ -220,15 +216,13 @@ no zone is assigned twice. Uncovered zones are surfaced, not hidden.
 `hexToRgba`, shadowing the one in `field-map.js` — the two are byte-identical,
 so it is harmless; keep them in sync if either changes.
 
-## Procurement — Channel3 (reinstated)
+## Procurement — removed from the UI
 
-Channel3 was removed earlier, then **reinstated at the user's request** — the
-old "do not reintroduce" note no longer applies to it. `POST /api/purchase`
-proxies to `https://api.trychannel3.com/v0/search` server-side and returns real
-listings: title, brand, vendor domain, live unit price, stock status, buy link,
-and the line total for the prescribed volume. `CHANNEL3_API_KEY` lives in
-`.env` only. On any failure the UI shows a clearly-labelled estimate rather
-than a fake confirmation — never present an estimate as a real order.
+The procurement panel was **removed at the user's request** and `js/procure.js`
+is deleted. Do not re-add it. The server route `POST /api/purchase` (Channel3
+proxy) still exists and works, but nothing on the dashboard calls it — leave it
+in place unless asked; if it is ever wired back up, the old rule stands: on any
+failure show a clearly-labelled estimate, never a fake confirmation.
 
 ## Credentials
 
@@ -299,6 +293,14 @@ Styled to the dark theme (`--bg`/`--panel`/`--border`/`--text`/`--muted`,
 monospace tabular-nums for the stats row). Not yet verified in a real browser
 from this session — no Node/browser automation available in this sandbox: test
 in a real run and report back if the canvas doesn't render or console errors.
+
+## Field impact panel
+
+`js/impact.js` renders one hero figure (pesticide use cut, with a sprayed-vs-
+field bar) plus four label/value rows — not a paragraph of prose. Every number
+is derived from the plan (severities, areas, volumes); the modelling constants
+`IMPACT_LOSS_MIN` / `IMPACT_LOSS_SPAN` / `IMPACT_EFFICACY` live at the top of
+the file. Keep it structured and scannable; do not turn it back into plaintext.
 
 ## Log
 

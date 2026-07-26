@@ -21,7 +21,7 @@ function initImpact(data) {
   const zones = (data && data.zones) || [];
   const treated = zones.filter((z) => z.treatment_id !== 'none');
   if (!treated.length) {
-    body.innerHTML = '<span class="procure-empty">Run the analysis — impact figures appear once zones are diagnosed and per-zone volumes are derived.</span>';
+    body.innerHTML = '<span class="empty-note">Run the analysis — impact figures appear once zones are diagnosed and per-zone volumes are derived.</span>';
     return;
   }
 
@@ -48,25 +48,41 @@ function initImpact(data) {
     minimumFractionDigits: dp, maximumFractionDigits: dp
   });
 
-  body.innerHTML =
-    '<div class="impact-grid">' +
-      tile('hero', fmt(savingsPct, 0) + '%', 'Pesticide use cut',
-        fmt(galAvoided, 0) + ' gal not sprayed vs blanket-treating all ' +
-        fmt(total, 0) + ' acres') +
-      tile('', fmt(yieldSavedPct, 1) + '%', 'Yield loss averted',
-        '≈ ' + fmt(savedAcresEq, 1) + ' acre-equivalents of harvest protected across ' +
-        treated.length + ' treated zones') +
-      tile('', fmt(prescribedGal, 1) + ' gal', 'Targeted spray volume',
-        fmt(treatedAcres, 1) + ' acres treated at ' + fmt(avgRate, 2) + ' gal/ac average') +
-      tile('', fmt(noSprayAcres, 1) + ' ac', 'Spared unnecessary chemicals',
-        'stress there is water or nitrogen — diagnosed do-not-spray, so treatment would be wasted') +
-    '</div>';
+  const treatedPct = total > 0 ? (treatedAcres / total) * 100 : 0;
 
-  function tile(kind, num, label, sub) {
-    return '<div class="impact-tile' + (kind === 'hero' ? ' hero' : '') + '">' +
-      '<div class="impact-num num">' + num + '</div>' +
-      '<div class="impact-label">' + label + '</div>' +
-      '<div class="impact-sub">' + sub + '</div>' +
+  body.innerHTML =
+    '<div class="impact-hero">' +
+      '<div class="impact-hero-num num">' + fmt(savingsPct, 0) + '<span>%</span></div>' +
+      '<div class="impact-hero-side">' +
+        '<div class="impact-hero-label">Pesticide use cut</div>' +
+        '<div class="impact-bar">' +
+          '<div class="impact-bar-fill" style="width:' + Math.min(100, Math.max(2, treatedPct)).toFixed(1) + '%"></div>' +
+        '</div>' +
+        '<div class="impact-bar-legend">' +
+          '<span class="num">' + fmt(treatedAcres, 0) + ' ac</span> sprayed' +
+          '<span class="impact-legend-gap"></span>' +
+          '<span class="num">' + fmt(total, 0) + ' ac</span> field' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="impact-rows">' +
+      row(fmt(galAvoided, 0), 'gal', 'Chemical avoided', 'vs blanket-spraying the whole field') +
+      row(fmt(prescribedGal, 1), 'gal', 'Volume prescribed',
+        fmt(avgRate, 2) + ' gal/ac across ' + treated.length + ' zone' + (treated.length === 1 ? '' : 's')) +
+      row(fmt(yieldSavedPct, 1), '%', 'Yield loss averted',
+        '≈ ' + fmt(savedAcresEq, 1) + ' acre-equivalents of harvest protected') +
+      row(fmt(noSprayAcres, 1), 'ac', 'Diagnosed, not sprayed', 'water or nitrogen stress — spraying would be wasted') +
+    '</div>' +
+    (live ? '' : '<div class="impact-flag">Simulated plan</div>');
+
+  function row(num, unit, label, sub) {
+    return '<div class="impact-row">' +
+      '<div class="impact-row-val"><span class="num">' + num + '</span>' +
+        '<span class="impact-unit">' + unit + '</span></div>' +
+      '<div class="impact-row-text">' +
+        '<div class="impact-row-label">' + label + '</div>' +
+        '<div class="impact-row-sub">' + sub + '</div>' +
+      '</div>' +
     '</div>';
   }
 }

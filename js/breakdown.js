@@ -27,7 +27,7 @@ function initBreakdown(data) {
         '</div>';
       return;
     }
-    body.innerHTML = '<span class="procure-empty">Draw a region on the map, then run the analysis.</span>';
+    body.innerHTML = '<span class="empty-note">Draw a region on the map, then run the analysis.</span>';
     return;
   }
 
