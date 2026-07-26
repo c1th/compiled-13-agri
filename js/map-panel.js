@@ -81,7 +81,7 @@ function clearRegions() {
   drawRegionRects();
   fitAllRegions();
   invalidatePlan();
-  setMapStatus('Regions cleared.');
+  setMapStatus('');
 }
 
 // Full reset for a second demo run (the "R" key).
@@ -175,9 +175,7 @@ function onMapClick(evt) {
   drawRegionRects();
   probeRegion(regions[regions.length - 1]);
   invalidatePlan();
-  setMapStatus(regions.length > 1
-    ? regions.length + ' regions selected \u2014 run the analysis to survey them all.'
-    : 'Region set \u2014 run the analysis to generate a plan.');
+  setMapStatus('');
 }
 
 let regionsUserDrawn = false;
@@ -387,8 +385,6 @@ function renderMapLegend(data) {
   const legend = document.getElementById('map-legend');
   if (!legend) return;
   legend.innerHTML = '';
-  const caption = document.getElementById('legend-caption');
-  if (caption) caption.hidden = !data.zones.some((z) => z.treatment_id !== 'none');
   for (const key of Object.keys(data.treatments)) {
     const t = data.treatments[key];
     if (key !== 'none' && !data.zones.some((z) => z.treatment_id === key)) continue;
@@ -509,9 +505,6 @@ function probeRegion(region) {
     if (!cover) { renderRegionList(); return; }
     region.probe = cover;
     renderRegionList();
-    if (!cover.plantable) {
-      setMapStatus(region.label + ': ' + cover.note + ' It will be skipped in the survey.');
-    }
   }).catch((err) => {
     region.probing = false;
     console.warn('[FieldLoop] land-cover check failed:', err);
@@ -533,17 +526,9 @@ function populateBandSelect() {
     .join('');
   sel.onchange = () => {
     currentBandId = sel.value;
-    setBandNote();
     applyBandLayer();
     renderBandScale();
   };
-  setBandNote();
-}
-
-function setBandNote(override) {
-  const el = document.getElementById('band-note');
-  if (!el) return;
-  el.textContent = override || currentBand().note;
 }
 
 // Swap the base layer for the selected band view.

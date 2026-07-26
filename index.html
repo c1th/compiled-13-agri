@@ -39,21 +39,11 @@
         <select id="band-select" class="inv-input band-select"></select>
         <span id="map-status" class="map-status"></span>
       </div>
-      <p class="band-note" id="band-note"></p>
       <div id="gee-map" class="gee-map"></div>
       <div class="band-scale" id="band-scale" hidden></div>
-      <p class="legend-caption" id="legend-caption" hidden>
-        Treatment plan overlay &mdash; colour is the prescribed product,
-        brightness is how heavily it is applied. Hover any zone for details.
-      </p>
       <div class="map-legend" id="map-legend"></div>
       <div class="region-list" id="region-list"></div>
       <div class="region-readout num" id="region-readout"></div>
-      <p class="provenance">
-        Treating only diagnosed pest zones is validated against Iowa State
-        (76% avg field-area savings) and Univ. of Arkansas (43&ndash;59%)
-        precision-spray trials.
-      </p>
     </section>
 
     <section class="panel breakdown-panel">
@@ -65,15 +55,9 @@
     <section class="panel analyze-panel">
       <div class="analyze-bar">
         <button id="run-analysis" class="btn btn-primary">Run analysis</button>
-        <span id="analyze-status" class="analyze-status"></span>
       </div>
     </section>
 
-    <section class="panel trace-panel" id="trace-panel" hidden>
-      <div class="panel-title">What the system is looking at</div>
-      <p class="band-note">Live pipeline telemetry — imagery reads, index computation, and the model's own reasoning as it works. Paced for readability.</p>
-      <div class="trace-log" id="trace-log"></div>
-    </section>
 
     <section class="panel impact-panel">
       <div class="panel-title">Field impact &mdash; this survey</div>
@@ -82,7 +66,6 @@
 
     <section class="panel fleet-panel">
       <div class="panel-title">Drone fleet</div>
-      <p class="band-note">Each drone carries one product. Set where it launches, how much it holds and how far it can fly &mdash; routing respects all three.</p>
       <div id="fleet-body"></div>
       <div class="drone-actions">
         <button id="add-drone" class="btn">+ Add drone</button>
@@ -93,7 +76,6 @@
     <section class="panel analyze-panel">
       <div class="analyze-bar">
         <button id="plan-routes" class="btn btn-primary">Calculate drone routes</button>
-        <span id="route-status" class="analyze-status"></span>
       </div>
     </section>
 
@@ -107,6 +89,17 @@
       <div id="procure-body"></div>
     </section>
   </main>
+
+  <section class="trace-dock" id="trace-dock" hidden aria-label="System output">
+    <div class="trace-dock-bar">
+      <span class="trace-dock-title">System output</span>
+      <span class="trace-dock-spacer"></span>
+      <span class="trace-count num" id="trace-count"></span>
+      <button class="btn trace-btn" id="trace-clear">Clear</button>
+      <button class="btn trace-btn" id="trace-toggle">Collapse</button>
+    </div>
+    <div class="trace-log" id="trace-log"></div>
+  </section>
 
   <script src="vendor/leaflet.js"></script>
   <script src="data/stub-zones.js"></script>

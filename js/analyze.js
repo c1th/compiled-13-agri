@@ -6,12 +6,6 @@
 function initAnalyze() {
   const btn = document.getElementById('run-analysis');
   btn.onclick = runAnalysis;
-  const existing = loadPlan();
-  if (existing) {
-    setAnalyzeStatus('Plan loaded (' + (existing.source === 'claude' ? 'Claude analysis' : 'mock analysis') + ') — ' + existing.zones.length + ' zones.');
-  } else {
-    setAnalyzeStatus('Draw a region on the map, then run the analysis.');
-  }
 }
 
 async function runAnalysis() {
@@ -64,7 +58,6 @@ async function runAnalysis() {
     }
     await traceBeat('compute', 'Serialising ' + region.label + ' for inference',
       'WGS84 bbox + acreage envelope + catalog manifest → prompt payload');
-    setAnalyzeStatus('Surveying ' + region.label + ' (' + (i + 1) + ' of ' + regionList.length + ')…');
     parts.push({ region, plan: await analyzeRegion(region) });
   }
 
@@ -86,7 +79,6 @@ async function runAnalysis() {
     Object.keys(plan.treatments).filter((k) => k !== 'none').length + ' SKUs prescribed');
   sessionStorage.setItem('fieldloop_plan', JSON.stringify(plan));
   setData(plan);
-  reportAnalysis(plan, parts);
 
   btn.disabled = false;
   btn.textContent = 'Run analysis';
@@ -258,29 +250,6 @@ function mergePlans(parts, union) {
   };
 }
 
-function reportAnalysis(plan, parts) {
-  const skipped = (plan.regions || []).filter((r) => r.zone_count === 0);
-  const products = Object.keys(plan.treatments).filter((k) => k !== 'none').length;
-  const src = plan.source === 'claude' ? 'Claude' : 'offline mock';
-
-  if (!plan.zones.length) {
-    const why = skipped.map((r) => r.assessment && r.assessment.note).filter(Boolean)[0];
-    setAnalyzeStatus(why || 'No plantable crop detected in the selected area — nothing to treat.');
-    return;
-  }
-
-  let msg = 'Surveyed ' + parts.length + (parts.length === 1 ? ' region' : ' regions') +
-    ' (' + src + ') — ' + plan.zones.length + ' zones, ' +
-    products + ' product' + (products === 1 ? '' : 's') + ' prescribed.';
-  if (lastFallbackReason) {
-    msg += ' Live analysis unavailable (' + lastFallbackReason + '), so this is simulated data.';
-  }
-  if (skipped.length) {
-    msg += ' ' + skipped.map((r) => r.label).join(', ') +
-      (skipped.length === 1 ? ' had' : ' had') + ' no plantable crop and was skipped.';
-  }
-  setAnalyzeStatus(msg);
-}
 
 function loadPlan() {
   try {
@@ -289,10 +258,6 @@ function loadPlan() {
   } catch (_e) { return null; }
 }
 
-function setAnalyzeStatus(text) {
-  const el = document.getElementById('analyze-status');
-  if (el) el.textContent = text;
-}
 
 // Deterministic mock plan — seeded by the bounds so re-runs are stable.
 // Prescribes from the same catalog the server uses; quantities are whatever

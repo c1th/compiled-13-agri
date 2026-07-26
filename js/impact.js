@@ -60,15 +60,7 @@ function initImpact(data) {
         fmt(treatedAcres, 1) + ' acres treated at ' + fmt(avgRate, 2) + ' gal/ac average') +
       tile('', fmt(noSprayAcres, 1) + ' ac', 'Spared unnecessary chemicals',
         'stress there is water or nitrogen — diagnosed do-not-spray, so treatment would be wasted') +
-    '</div>' +
-    '<p class="band-note impact-basis">' +
-      (live
-        ? 'Derived from this survey’s model-diagnosed zone severities, areas and application volumes. '
-        : 'Derived from the simulated plan (live analysis unavailable). ') +
-      'Yield figures model ' + Math.round(IMPACT_LOSS_MIN * 100) + '–' +
-      Math.round((IMPACT_LOSS_MIN + IMPACT_LOSS_SPAN) * 100) +
-      '% untreated loss scaled by zone severity at ' + Math.round(IMPACT_EFFICACY * 100) +
-      '% treatment efficacy.</p>';
+    '</div>';
 
   function tile(kind, num, label, sub) {
     return '<div class="impact-tile' + (kind === 'hero' ? ' hero' : '') + '">' +

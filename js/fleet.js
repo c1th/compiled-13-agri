@@ -23,7 +23,7 @@ function initFleet(data) {
   const randBtn = document.getElementById('randomize-fleet');
   const planBtn = document.getElementById('plan-routes');
   if (addBtn) addBtn.onclick = () => { addDrone(data); renderFleet(data); };
-  if (randBtn) randBtn.onclick = () => { randomizeFleet(data); renderFleet(data); setRouteStatus('Fleet randomised — ' + fleet.length + ' drones ready.'); };
+  if (randBtn) randBtn.onclick = () => { randomizeFleet(data); renderFleet(data); };
   if (planBtn) planBtn.onclick = () => planRoutes(data);
 }
 
@@ -153,7 +153,6 @@ function droneRowHtml(d, data, products) {
 
 function pickOrigin(id, data) {
   if (typeof armOriginPick !== 'function') return;
-  setRouteStatus('Click the map to place ' + id + '’s launch point.');
   armOriginPick((lat, lon) => {
     const drone = fleet.find((x) => x.id === id);
     if (!drone) return;
@@ -162,7 +161,6 @@ function pickOrigin(id, data) {
     drone.y = pos.y;
     saveFleet();
     renderFleet(data);
-    setRouteStatus(id + ' launches from ' + lat.toFixed(4) + ', ' + lon.toFixed(4) + '.');
   });
 }
 
@@ -171,16 +169,13 @@ function pickOrigin(id, data) {
 async function planRoutes(data) {
   const btn = document.getElementById('plan-routes');
   if (typeof planSwarmRoutes !== 'function') {
-    setRouteStatus('Routing engine not loaded.');
     return;
   }
   const treated = data.zones.filter((z) => z.treatment_id !== 'none');
   if (!treated.length) {
-    setRouteStatus('Nothing to fly — run the analysis first.');
     return;
   }
   if (!fleet.length) {
-    setRouteStatus('Add at least one drone.');
     return;
   }
 
@@ -206,7 +201,6 @@ async function planRoutes(data) {
   } catch (err) {
     console.error('[FieldLoop] routing failed:', err);
     traceStep('warn', 'Routing failed', err.message || 'unknown error');
-    setRouteStatus('Routing failed — see console.');
     btn.disabled = false;
     btn.textContent = 'Calculate drone routes';
     return;
@@ -225,8 +219,6 @@ async function planRoutes(data) {
 
   const covered = result.drones.reduce((s, d) => s + d.route.length, 0);
   traceDone(covered + ' of ' + treated.length + ' zones assigned · strategy ' + result.strategy);
-  setRouteStatus('Routed ' + covered + ' of ' + treated.length + ' zones using ' +
-    result.strategy.replace(/([A-Z])/g, ' $1').toLowerCase().trim() + '.');
 
   btn.disabled = false;
   btn.textContent = 'Recalculate routes';
@@ -294,7 +286,3 @@ function meterHtml(label, value, pct, color) {
   '</div>';
 }
 
-function setRouteStatus(text) {
-  const el = document.getElementById('route-status');
-  if (el) el.textContent = text;
-}

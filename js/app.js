@@ -85,6 +85,8 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'r' || e.key === 'R') resetAllPanels();
 });
 
+if (typeof initTraceDock === 'function') initTraceDock();
+
 registerPanel('map', initMapPanel);
 registerPanel('breakdown', initBreakdown);
 registerPanel('analyze', initAnalyze);
