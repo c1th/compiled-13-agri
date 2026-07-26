@@ -1,6 +1,5 @@
 // Procurement panel. Consumes the diagnose() result (via the
-// 'fieldloop:diagnosis' event) and POSTs to our own /api/purchase —
-// server.js holds the Channel3 key; it never reaches the browser.
+// 'fieldloop:diagnosis' event) and POSTs to our own /api/purchase.
 // If the request fails for ANY reason, fall back to a clearly-labeled
 // mock confirmation after 800ms so the demo never dead-ends.
 
