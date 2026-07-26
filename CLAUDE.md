@@ -200,10 +200,42 @@ optimal; on-hand gallons only net down the procurement order quantities
 (`initProcure` reads `getShedInventory()`). Shed state lives in localStorage
 (`fieldloop_shed`) and is cleared by the "R" reset.
 
+## Drone fleet and routing — on the dashboard
+
+`js/fleet.js` owns fleet configuration and lives on `index.html` (the drone
+page is not linked from anywhere). Per drone: one product, tank gallons,
+battery km, and a launch point picked by clicking the map. "Randomise for demo"
+spreads launch points around the field perimeter and varies tanks/batteries.
+
+**Routing is the teammate's — do not reimplement it.** `js/fleet.js` calls
+`planSwarmRoutes(data, fleet)` from `js/swarm.js` and only renders the result.
+Fleet entries must match that contract exactly:
+`{ id, carries, tank_gal, battery_km, x, y }` with x/y normalised 0..1,
+origin top-left. Verified behaviour: a drone only visits zones whose
+`treatment_id` equals what it carries, tank and battery are never exceeded, and
+no zone is assigned twice. Uncovered zones are surfaced, not hidden.
+
+`js/map-panel.js` provides `armOriginPick(cb)` (next map click returns lat/lon),
+`drawDroneRoutes(result)` and `clearDroneRoutes()`. Note `swarm.js` also defines
+`hexToRgba`, shadowing the one in `field-map.js` — the two are byte-identical,
+so it is harmless; keep them in sync if either changes.
+
+## Procurement — Channel3 (reinstated)
+
+Channel3 was removed earlier, then **reinstated at the user's request** — the
+old "do not reintroduce" note no longer applies to it. `POST /api/purchase`
+proxies to `https://api.trychannel3.com/v0/search` server-side and returns real
+listings: title, brand, vendor domain, live unit price, stock status, buy link,
+and the line total for the prescribed volume. `CHANNEL3_API_KEY` lives in
+`.env` only. On any failure the UI shows a clearly-labelled estimate rather
+than a fake confirmation — never present an estimate as a real order.
+
 ## Credentials
 
 Both optional; the app degrades gracefully without either.
 
+- `.env` → `CHANNEL3_API_KEY` — enables real supplier sourcing on
+  `/api/purchase`. Server-side only.
 - `.env` → `ANTHROPIC_API_KEY` — enables real Claude analysis on `/api/analyze`.
   Server-side only, never reaches the browser. `.env` is gitignored; keep the
   tracked `.env.example` placeholder **blank**.
@@ -271,6 +303,8 @@ in a real run and report back if the canvas doesn't render or console errors.
 ## Log
 
 - Built dashboard (map, breakdown, procurement) and drone ops page.
+- Reinstated Channel3 sourcing (real listings/prices) and brought full drone
+  fleet configuration + route planning onto the dashboard.
 - Added the live analysis trace (streamed reasoning + pipeline telemetry) and
   made the dashboard standalone by removing all drone-page navigation.
 - Removed at the user's request — **do not reintroduce**: AI-agronomist panel,
