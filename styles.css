@@ -245,3 +245,50 @@ body {
   width: 9px;
   height: 9px;
 }
+
+/* ---------- Treatment breakdown ---------- */
+
+.breakdown-panel { grid-column: 2; }
+
+.tb-group {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+
+.tb-group.nospray {
+  border: 1.5px dashed #5A9BD4;
+  background: rgba(90, 155, 212, 0.06);
+  margin-top: 20px;
+}
+
+.tb-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.tb-name { flex: 1; }
+
+.tb-group.nospray .tb-name { color: #5A9BD4; }
+
+.tb-count { color: var(--muted); font-size: 12px; font-weight: 400; }
+
+.tb-stats {
+  display: flex;
+  gap: 24px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.tb-stats .num { color: var(--text); font-size: 15px; }
+
+.tb-why {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.5;
+}

@@ -31,3 +31,4 @@ document.addEventListener('keydown', (e) => {
 
 registerPanel('kpi', initKPI);
 registerPanel('field-map', initFieldMap);
+registerPanel('breakdown', initBreakdown);
