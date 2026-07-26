@@ -37,13 +37,28 @@ under the map: region bounds · total field · acres treated.
 - Vanilla JS + plain CSS. **No** React, TypeScript, Vite/webpack, build step,
   Tailwind, or runtime CDN links. Must run offline if venue wifi dies.
 - Third-party libs are **vendored** into `vendor/` (Leaflet, Earth Engine JS
-  client) and served locally. Never add a `<script src="https://...">`.
+  client, `three.module.js`) and served locally. Never add a
+  `<script src="https://...">`; `import()` of a local `vendor/*.js` path is fine.
 - One Node/Express server (`server.js`) serving static files + the API routes.
   `npm install && node server.js` is the entire setup.
-- Dark UI: bg `#0F1419`, panels `#1A2129`, borders `#2A3441`, text `#E6EDF3`,
-  muted `#8B98A5`, accent `#4ADE80` (hero stat only). System font for prose,
-  monospace + tabular-nums for every number. No gradients, no emoji, no icon
-  libraries. Target is a 1440px laptop screen only.
+- **UI direction pivoted (superseded the old dark-hackathon palette below):**
+  the dashboard now mirrors a warm, soft, rounded "wellness app" visual
+  language — cream/beige page background, large-radius (24px+) white/cream
+  cards, one true-black high-contrast card for the swarm/map moment, soft
+  blurred-color glow shapes used deliberately as a data-viz technique (tinted
+  with our own real treatment colors, not arbitrary decoration), a circular
+  ring stat, and habit-list-style rows for the treatment/procurement groups.
+  This is an intentional full commit, not a hybrid — do not pull it back
+  toward the old dark palette. Gradients are now allowed **only** as the soft
+  blurred-glow stat visualization described above; don't use them elsewhere
+  (no decorative background gradients, no gradient buttons). No emoji, no
+  icon libraries beyond simple inline SVG/line icons for the nav rail. System
+  font for prose still applies (rounded/geometric sans is fine, still no
+  imported/CDN webfont); monospace + tabular-nums for every number, unchanged.
+  Target is a 1440px laptop screen only.
+- ~~Old dark UI (superseded, kept here for history): bg `#0F1419`, panels
+  `#1A2129`, borders `#2A3441`, text `#E6EDF3`, muted `#8B98A5`, accent
+  `#4ADE80`. No gradients.~~
 
 ## Demo-safety rules (non-negotiable)
 
@@ -175,3 +190,9 @@ in a real run and report back if the canvas doesn't render or console errors.
 - Drone page assignments are greedy nearest-first within tank capacity, shown
   as colored rings + manifest cards. **No flight paths** — the swarm sim owns
   those; do not draw them here.
+- Vendored `three.module.js` and added a decorative (non-routing) `js/field-3d.js`
+  "3D field preview" panel on `drones.html` — separate from the swarm sim,
+  does not touch `js/swarm.js` / `js/swarm-mount.js` / `#swarm-mount`.
+- Pivoted the whole visual system to the warm/soft/rounded language described
+  in Hard constraints above, at the user's explicit request ("fully commit,
+  no middle ground") — full reskin of `styles.css`, `index.html`, `drones.html`.
