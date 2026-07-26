@@ -5,15 +5,20 @@ function initSwarmMount(data) {
   window.FieldLoop = {
     field: data,
     // Swarm sim calls this after it mutates zone state (e.g. marks zones
-    // treated). Re-renders the data-driven panels; never throws.
+    // treated). Refreshes whatever data-driven views exist on this page.
     onZonesUpdated: function (zones) {
       if (Array.isArray(zones)) data.zones = zones;
-      try { initFieldMap(data); } catch (err) { console.error('[FieldLoop] map refresh failed:', err); }
-      try { initBreakdown(data); } catch (err) { console.error('[FieldLoop] breakdown refresh failed:', err); }
+      try {
+        if (typeof initFieldMap === 'function') initFieldMap(data);
+      } catch (err) { console.error('[FieldLoop] map refresh failed:', err); }
+      try {
+        if (typeof initBreakdown === 'function') initBreakdown(data);
+      } catch (err) { console.error('[FieldLoop] breakdown refresh failed:', err); }
     }
   };
 
   const mount = document.getElementById('swarm-mount');
+  if (!mount) return;
   mount.innerHTML = '';
   if (typeof window.initSwarm === 'function') {
     window.initSwarm(mount, data);

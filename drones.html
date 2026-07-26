@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FieldLoop — Drone Operations</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">FieldLoop <span class="brand-sub">/ Drone operations</span></div>
+    <div class="field-meta">
+      <span id="field-name" class="field-name">&mdash;</span>
+      <a class="btn nav-btn" href="index.html">&larr; Dashboard</a>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel map-panel drone-map-panel">
+      <div class="panel-title">Treatment zones</div>
+      <div class="map-wrap" id="map-wrap"></div>
+      <div class="map-footer">
+        <div class="map-legend" id="map-legend"></div>
+        <div class="region-readout" id="origin-hint"></div>
+      </div>
+    </section>
+
+    <section class="panel drone-config-panel">
+      <div class="panel-title">Drone fleet</div>
+      <div id="drone-list"></div>
+      <div class="drone-actions">
+        <button id="add-drone" class="btn">+ Add drone</button>
+        <button id="recommend" class="btn btn-primary">Recommend assignments</button>
+      </div>
+    </section>
+
+    <section class="panel assignments-panel">
+      <div class="panel-title">Recommended assignments</div>
+      <div id="assignments-body" class="assignments-body">
+        <span class="procure-empty">Configure the fleet, then click &ldquo;Recommend assignments&rdquo;.</span>
+      </div>
+    </section>
+
+    <section class="panel swarm-panel">
+      <div class="panel-title">Drone swarm</div>
+      <div id="swarm-mount"></div>
+    </section>
+  </main>
+
+  <script src="data/stub-zones.js"></script>
+  <script src="data/zones.js"></script>
+  <script src="js/field-map.js"></script>
+  <script src="js/drones.js"></script>
+  <script src="js/swarm-mount.js"></script>
+  <!-- Swarm sim script goes here (defines window.initSwarm) — see README -->
+  <script>initDronesPage();</script>
+</body>
+</html>
