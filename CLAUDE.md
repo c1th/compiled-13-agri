@@ -119,7 +119,7 @@ FIELD = {
   `analyze.js`, `procure.js`, `drones.js`, `swarm-mount.js` (integration seam).
 - `data/` — `zones.js` (FIELD), `stub-zones.js` (STUB fallback),
   `catalog.js` (biological catalog, mirrors the one in `server.js`).
-- `vendor/` — Leaflet + Earth Engine client, committed for offline use.
+- `vendor/` — Leaflet and three.js, committed for offline use.
 
 ## Map, bands and regions — no Earth Engine
 
