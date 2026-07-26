@@ -20,42 +20,144 @@ function initAnalyze() {
 
 async function runAnalysis() {
   const btn = document.getElementById('run-analysis');
-  const bounds = getRegionBounds();
-  const acres = regionAcres();
+  const regionList = getRegions();
 
   btn.disabled = true;
-  btn.textContent = 'Analyzing region…';
-  setAnalyzeStatus('Diagnosing stress zones and prescribing treatments…');
+  btn.textContent = 'Analyzing…';
 
-  let plan = null;
+  const parts = [];
+  for (let i = 0; i < regionList.length; i++) {
+    const region = regionList[i];
+    setAnalyzeStatus('Surveying ' + region.label + ' (' + (i + 1) + ' of ' + regionList.length + ')…');
+    parts.push({ region, plan: await analyzeRegion(region) });
+  }
+
+  const plan = mergePlans(parts, getRegionBounds());
+  sessionStorage.setItem('fieldloop_plan', JSON.stringify(plan));
+  setData(plan);
+  reportAnalysis(plan, parts);
+  document.getElementById('drone-cta').hidden = plan.zones.length === 0;
+
+  btn.disabled = false;
+  btn.textContent = 'Run analysis';
+}
+
+// One region → one plan. Falls back to the local mock so a failure in one
+// region never sinks the whole survey.
+async function analyzeRegion(region) {
+  const acres = acresOf(region.bounds);
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 45000);
     const res = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bounds, total_acres: acres }),
+      body: JSON.stringify({ bounds: region.bounds, total_acres: acres }),
       signal: controller.signal
     });
     clearTimeout(timer);
     if (!res.ok) throw new Error('analyze endpoint responded ' + res.status);
-    plan = await res.json();
+    return await res.json();
   } catch (err) {
-    console.warn('[FieldLoop] live analysis failed, using local mock:', err);
+    console.warn('[FieldLoop] live analysis failed for ' + region.label + ', using local mock:', err);
     await new Promise((resolve) => setTimeout(resolve, 900));
-    plan = mockAnalyze(bounds, acres);
+    return mockAnalyze(region.bounds, acres);
+  }
+}
+
+// Combine per-region plans into one FIELD-shaped plan. Zone x/y are recomputed
+// against the union extent so the frozen contract still holds downstream
+// (0..1, origin top-left) no matter how many regions were surveyed.
+function mergePlans(parts, union) {
+  const [w, s, e, n] = union;
+  const zones = [];
+  const treatments = {
+    none: { name: 'No treatment — irrigation issue', rate_gal_per_acre: 0, color: '#5A9BD4' }
+  };
+  let totalAcres = 0;
+  let anyClaude = false;
+
+  for (const part of parts) {
+    const plan = part.plan;
+    totalAcres += acresOf(part.region.bounds);
+    if (plan.source === 'claude') anyClaude = true;
+    for (const key of Object.keys(plan.treatments || {})) {
+      if (key !== 'none') treatments[key] = plan.treatments[key];
+    }
+    for (const z of (plan.zones || [])) {
+      const zone = Object.assign({}, z);
+      zone.id = parts.length > 1 ? part.region.label + '-' + z.id : z.id;
+      zone.region_id = part.region.id;
+      zone.x = e === w ? 0.5 : (z.lon - w) / (e - w);
+      zone.y = n === s ? 0.5 : (n - z.lat) / (n - s);
+      zones.push(zone);
+    }
   }
 
-  sessionStorage.setItem('fieldloop_plan', JSON.stringify(plan));
-  setData(plan);
+  // Global priority ordering across every region.
+  zones.slice().sort((a, b) => b.severity - a.severity)
+    .forEach((z, i) => { z.priority = i + 1; });
 
+  const flagged = Number(zones
+    .filter((z) => z.treatment_id !== 'none')
+    .reduce((sum, z) => sum + z.area_acres, 0).toFixed(1));
+  const pctFlagged = totalAcres > 0 ? Number((flagged / totalAcres * 100).toFixed(1)) : 0;
+
+  // Drop products no surviving zone actually uses.
+  const used = new Set(zones.map((z) => z.treatment_id));
+  for (const key of Object.keys(treatments)) {
+    if (key !== 'none' && !used.has(key)) delete treatments[key];
+  }
+
+  return {
+    source: anyClaude ? 'claude' : 'mock',
+    regions: parts.map((p) => ({
+      id: p.region.id,
+      label: p.region.label,
+      bounds: p.region.bounds,
+      acres: Math.round(acresOf(p.region.bounds)),
+      assessment: p.plan.region_assessment || null,
+      zone_count: (p.plan.zones || []).length
+    })),
+    meta: {
+      name: parts.length > 1 ? parts.length + ' regions' : 'Selected region',
+      bounds: union,
+      image: 'field.png',
+      image_size: [1200, 800],
+      date: new Date().toISOString().slice(0, 10)
+    },
+    summary: {
+      total_acres: Math.round(totalAcres),
+      flagged_acres: flagged,
+      pct_flagged: pctFlagged,
+      pct_reduction: Math.round(100 - pctFlagged),
+      dollars_saved: Math.round((totalAcres - flagged) * 34)
+    },
+    treatments,
+    zones,
+    fleet: []
+  };
+}
+
+function reportAnalysis(plan, parts) {
+  const skipped = (plan.regions || []).filter((r) => r.zone_count === 0);
   const products = Object.keys(plan.treatments).filter((k) => k !== 'none').length;
-  setAnalyzeStatus((plan.source === 'claude' ? 'Analysis complete (Claude) — ' : 'Analysis complete (offline mock) — ') +
-    plan.zones.length + ' zones, ' + products + ' product' + (products === 1 ? '' : 's') + ' prescribed.');
-  document.getElementById('drone-cta').hidden = false;
+  const src = plan.source === 'claude' ? 'Claude' : 'offline mock';
 
-  btn.disabled = false;
-  btn.textContent = 'Run analysis';
+  if (!plan.zones.length) {
+    const why = skipped.map((r) => r.assessment && r.assessment.note).filter(Boolean)[0];
+    setAnalyzeStatus(why || 'No plantable crop detected in the selected area — nothing to treat.');
+    return;
+  }
+
+  let msg = 'Surveyed ' + parts.length + (parts.length === 1 ? ' region' : ' regions') +
+    ' (' + src + ') — ' + plan.zones.length + ' zones, ' +
+    products + ' product' + (products === 1 ? '' : 's') + ' prescribed.';
+  if (skipped.length) {
+    msg += ' ' + skipped.map((r) => r.label).join(', ') +
+      (skipped.length === 1 ? ' had' : ' had') + ' no plantable crop and was skipped.';
+  }
+  setAnalyzeStatus(msg);
 }
 
 function loadPlan() {

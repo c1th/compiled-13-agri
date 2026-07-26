@@ -5,22 +5,23 @@
 // field.png render so the demo never blanks.
 
 let geeMap = null;
-let regionRect = null;
-let regionBounds = null;   // [W,S,E,N]
+let regions = [];          // [{ id, label, bounds:[W,S,E,N], rect }]
+let regionSeq = 0;
 let drawCorner = null;     // first click while drawing
 let drawing = false;
 let zoneLayers = [];
 let ndviLayer = null;
-let treatmentOverlay = null;
+let treatmentOverlays = [];
 let eeReady = false;
 let mapData = null;
 
 function initGeeMap(data) {
-  regionBounds = data.meta.bounds.slice();
   mapData = data;
   document.getElementById('field-name').textContent = data.meta.name;
   document.getElementById('field-date').textContent = data.meta.date;
   const container = document.getElementById('gee-map');
+
+  if (!regions.length) addRegion(data.meta.bounds.slice());
 
   try {
     if (typeof L === 'undefined') throw new Error('Leaflet not available');
@@ -31,99 +32,210 @@ function initGeeMap(data) {
       maxZoom: 19,
       attribution: 'Imagery: Esri World Imagery'
     }).addTo(geeMap);
-    fitRegion();
-    drawRegionRect();
+    fitAllRegions();
+    drawRegionRects();
     renderZonesOnMap(data);
     geeMap.on('click', onMapClick);
     // Band layers cover the visible scene, so refetch after the view settles.
     geeMap.on('moveend', () => { if (eeReady) addBandLayer(); });
     setMapStatus(eeReady
-      ? 'Earth Engine · ' + currentBand().label
+      ? 'Earth Engine \u00b7 ' + currentBand().label
       : 'Satellite base map. Connect Earth Engine to view spectral bands.');
   } catch (err) {
     console.warn('[FieldLoop] map fallback to static image:', err.message);
     renderStaticFallback(container, data);
-    setMapStatus('Offline mode — static imagery');
+    setMapStatus('Offline mode \u2014 static imagery');
   }
 
   renderMapLegend(data);
   populateBandSelect();
   renderBandScale();
   initSearch();
+  renderRegionList();
   updateRegionReadout();
 
   const drawBtn = document.getElementById('draw-region');
   const geeBtn = document.getElementById('gee-connect');
+  const clearBtn = document.getElementById('clear-regions');
   if (drawBtn) drawBtn.onclick = toggleDraw;
   if (geeBtn) geeBtn.onclick = connectEarthEngine;
+  if (clearBtn) clearBtn.onclick = clearRegions;
 }
 
-function fitRegion() {
-  const [w, s, e, n] = regionBounds;
+// ---------- Regions (one or many) ----------
+
+function addRegion(bounds) {
+  regionSeq += 1;
+  regions.push({ id: 'R' + regionSeq, label: 'R' + regionSeq, bounds, rect: null });
+  return regions[regions.length - 1];
+}
+
+function removeRegion(id) {
+  const i = regions.findIndex((r) => r.id === id);
+  if (i < 0) return;
+  if (regions[i].rect) regions[i].rect.remove();
+  regions.splice(i, 1);
+  if (!regions.length) addRegion(defaultBounds());
+  drawRegionRects();
+  invalidatePlan();
+}
+
+function clearRegions() {
+  for (const r of regions) if (r.rect) r.rect.remove();
+  regions = [];
+  regionSeq = 0;
+  addRegion(defaultBounds());
+  drawRegionRects();
+  fitAllRegions();
+  invalidatePlan();
+  setMapStatus('Regions cleared.');
+}
+
+// Full reset for a second demo run (the "R" key).
+function resetRegions() {
+  for (const r of regions) if (r.rect) r.rect.remove();
+  regions = [];
+  regionSeq = 0;
+  regionsUserDrawn = false;
+}
+
+function defaultBounds() {
+  if (mapData && mapData.meta && mapData.meta.bounds) return mapData.meta.bounds.slice();
+  return [-93.652, 41.987, -93.618, 42.001];
+}
+
+// Regions changed, so any existing plan describes different ground.
+function invalidatePlan() {
+  if (typeof clearPlan === 'function') clearPlan();
+  renderRegionList();
+  updateRegionReadout();
+}
+
+function unionBounds() {
+  const w = Math.min.apply(null, regions.map((r) => r.bounds[0]));
+  const s = Math.min.apply(null, regions.map((r) => r.bounds[1]));
+  const e = Math.max.apply(null, regions.map((r) => r.bounds[2]));
+  const n = Math.max.apply(null, regions.map((r) => r.bounds[3]));
+  return [w, s, e, n];
+}
+
+function fitAllRegions() {
+  const [w, s, e, n] = unionBounds();
   geeMap.fitBounds([[s, w], [n, e]], { padding: [24, 24] });
 }
 
-function drawRegionRect() {
-  const [w, s, e, n] = regionBounds;
-  if (regionRect) regionRect.remove();
-  regionRect = L.rectangle([[s, w], [n, e]], {
-    color: '#4ADE80', weight: 2, fill: false, dashArray: '6 4'
-  }).addTo(geeMap);
+function drawRegionRects() {
+  for (const r of regions) {
+    if (r.rect) r.rect.remove();
+    const [w, s, e, n] = r.bounds;
+    r.rect = L.rectangle([[s, w], [n, e]], {
+      color: '#4ADE80', weight: 2, fill: false, dashArray: '6 4', interactive: false
+    }).addTo(geeMap);
+    if (regions.length > 1) {
+      r.rect.bindTooltip(r.label, {
+        permanent: true, direction: 'top', className: 'region-tag', offset: [0, -2]
+      });
+    }
+  }
 }
 
 function toggleDraw() {
   drawing = !drawing;
   drawCorner = null;
   const btn = document.getElementById('draw-region');
-  btn.textContent = drawing ? 'Click two corners…' : 'Draw region';
+  btn.textContent = drawing ? 'Click two corners\u2026' : 'Add region';
   if (geeMap) geeMap.getContainer().style.cursor = drawing ? 'crosshair' : '';
+  if (drawing) setMapStatus('Click one corner of the area to survey, then the opposite corner.');
 }
 
 function onMapClick(evt) {
   if (!drawing) return;
   if (!drawCorner) {
     drawCorner = evt.latlng;
-    setMapStatus('Corner set — click the opposite corner.');
+    setMapStatus('Corner set \u2014 click the opposite corner.');
     return;
   }
   const a = drawCorner, b = evt.latlng;
-  regionBounds = [
+  const bounds = [
     Math.min(a.lng, b.lng), Math.min(a.lat, b.lat),
     Math.max(a.lng, b.lng), Math.max(a.lat, b.lat)
   ];
   drawCorner = null;
   toggleDraw();
-  drawRegionRect();
-  // The old plan describes a different region — clear it so stale acreage and
-  // zones don't linger over the new one.
-  if (typeof clearPlan === 'function') clearPlan();
-  updateRegionReadout();
-  setMapStatus('Region set — run the analysis to generate a plan.');
+
+  // First draw replaces the seeded default; later draws add alongside.
+  if (regions.length === 1 && !regionsUserDrawn) {
+    regions[0].bounds = bounds;
+  } else {
+    addRegion(bounds);
+  }
+  regionsUserDrawn = true;
+
+  drawRegionRects();
+  invalidatePlan();
+  setMapStatus(regions.length > 1
+    ? regions.length + ' regions selected \u2014 run the analysis to survey them all.'
+    : 'Region set \u2014 run the analysis to generate a plan.');
 }
 
-function getRegionBounds() { return regionBounds.slice(); }
+let regionsUserDrawn = false;
 
-function regionAcres() {
-  const [w, s, e, n] = regionBounds;
+// Every drawn region, for the analysis layer.
+function getRegions() {
+  return regions.map((r) => ({ id: r.id, label: r.label, bounds: r.bounds.slice() }));
+}
+
+// Union of all regions — the extent the merged plan is expressed in.
+function getRegionBounds() { return unionBounds(); }
+
+function acresOf(bounds) {
+  const [w, s, e, n] = bounds;
   const latM = (n - s) * 111320;
   const lonM = (e - w) * 111320 * Math.cos(((n + s) / 2) * Math.PI / 180);
   return Math.max(1, (latM * lonM) / 4046.86);
 }
 
-// Region bounds plus the two acreage figures, on one line.
+// Combined surveyed area across every region.
+function regionAcres() {
+  return regions.reduce((sum, r) => sum + acresOf(r.bounds), 0);
+}
+
+// One row per region: label, bounds, acreage, remove.
+function renderRegionList() {
+  const el = document.getElementById('region-list');
+  if (!el) return;
+  el.innerHTML = '';
+  for (const r of regions) {
+    const [w, s, e, n] = r.bounds;
+    const row = document.createElement('div');
+    row.className = 'region-row';
+    row.innerHTML =
+      '<span class="region-badge num">' + r.label + '</span>' +
+      '<span class="region-coords num">' + s.toFixed(4) + ', ' + w.toFixed(4) +
+        '  \u2192  ' + n.toFixed(4) + ', ' + e.toFixed(4) + '</span>' +
+      '<span class="region-acres num">' + Math.round(acresOf(r.bounds)).toLocaleString('en-US') + ' ac</span>' +
+      '<button class="inv-remove" data-id="' + r.id + '" title="Remove region">&times;</button>';
+    el.appendChild(row);
+  }
+  el.querySelectorAll('.inv-remove').forEach((btn) => {
+    btn.addEventListener('click', () => removeRegion(btn.dataset.id));
+  });
+}
+
+// Total surveyed area and, once analysed, how much of it gets treated.
 function updateRegionReadout() {
   const el = document.getElementById('region-readout');
   if (!el) return;
-  const [w, s, e, n] = regionBounds;
   const parts = [
-    `Region [${w.toFixed(4)}, ${s.toFixed(4)}, ${e.toFixed(4)}, ${n.toFixed(4)}]`,
-    `Total field ${Math.round(regionAcres()).toLocaleString('en-US')} ac`
+    regions.length + (regions.length === 1 ? ' region' : ' regions'),
+    'Total field ' + Math.round(regionAcres()).toLocaleString('en-US') + ' ac'
   ];
   if (mapData && mapData.summary && mapData.summary.flagged_acres) {
     const s0 = mapData.summary;
-    parts.push(`Acres treated ${s0.flagged_acres.toLocaleString('en-US')} ac (${s0.pct_flagged}%)`);
+    parts.push('Acres treated ' + s0.flagged_acres.toLocaleString('en-US') + ' ac (' + s0.pct_flagged + '%)');
+    parts.push('Untreated ' + Math.max(0, Math.round(s0.total_acres - s0.flagged_acres)).toLocaleString('en-US') + ' ac');
   }
-  el.textContent = parts.join('  ·  ');
+  el.textContent = parts.join('  \u00b7  ');
 }
 
 // Treatment renders as a weighted density field (see js/weighted-map.js), not
@@ -135,17 +247,25 @@ function renderZonesOnMap(data) {
   mapData = data;
   for (const layer of zoneLayers) layer.remove();
   zoneLayers = [];
-  if (treatmentOverlay) { treatmentOverlay.remove(); treatmentOverlay = null; }
+  for (const o of treatmentOverlays) o.remove();
+  treatmentOverlays = [];
 
-  const [w, s, e, n] = regionBounds;
-  try {
-    treatmentOverlay = L.imageOverlay(treatmentCanvasUrl(data), [[s, w], [n, e]], {
-      opacity: 0.88,
-      interactive: false,
-      className: 'treatment-overlay'
-    }).addTo(geeMap);
-  } catch (err) {
-    console.warn('[FieldLoop] treatment overlay failed:', err);
+  // One raster per region, each rendered in its own local grid so cell size
+  // stays consistent regardless of how far apart the regions are.
+  for (const r of regions) {
+    const [w, s, e, n] = r.bounds;
+    const inRegion = (z) => z.lon >= w && z.lon <= e && z.lat >= s && z.lat <= n;
+    if (!data.zones.some((z) => z.treatment_id !== 'none' && inRegion(z))) continue;
+    try {
+      const url = treatmentCanvasUrl(data, { bounds: r.bounds, zoneFilter: inRegion });
+      treatmentOverlays.push(
+        L.imageOverlay(url, [[s, w], [n, e]], {
+          opacity: 0.88, interactive: false, className: 'treatment-overlay'
+        }).addTo(geeMap)
+      );
+    } catch (err) {
+      console.warn('[FieldLoop] treatment overlay failed for ' + r.id + ':', err);
+    }
   }
 
   for (const zone of data.zones) {
@@ -400,7 +520,7 @@ function addBandLayer() {
       }
       if (ndviLayer) ndviLayer.remove();
       ndviLayer = L.tileLayer(obj.urlFormat, { opacity: 0.8, maxZoom: 19 }).addTo(geeMap);
-      if (treatmentOverlay) treatmentOverlay.bringToFront();
+      for (const o of treatmentOverlays) o.bringToFront();
       setMapStatus('Earth Engine · ' + band.label + ' (Sentinel-2, last 90 days)');
       renderBandScale();
     });

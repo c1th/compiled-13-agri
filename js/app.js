@@ -72,6 +72,8 @@ function emptyPlan(bounds) {
 function resetAllPanels() {
   sessionStorage.removeItem('fieldloop_plan');
   DATA = (typeof FIELD !== 'undefined') ? FIELD : STUB;
+  // Drop drawn regions too, so "R" really is a clean second run.
+  if (typeof resetRegions === 'function') resetRegions();
   for (const p of PANEL_INITS) safeInit(p.name, p.fn);
 }
 

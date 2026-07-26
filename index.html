@@ -27,7 +27,8 @@
         <span id="search-status" class="search-status"></span>
       </form>
       <div class="map-toolbar">
-        <button id="draw-region" class="btn">Draw region</button>
+        <button id="draw-region" class="btn">Add region</button>
+        <button id="clear-regions" class="btn">Clear</button>
         <label class="field-label" for="band-select">View</label>
         <select id="band-select" class="inv-input band-select"></select>
         <button id="gee-connect" class="btn">Connect Earth Engine</button>
@@ -37,6 +38,7 @@
       <div id="gee-map" class="gee-map"></div>
       <div class="band-scale" id="band-scale" hidden></div>
       <div class="map-legend" id="map-legend"></div>
+      <div class="region-list" id="region-list"></div>
       <div class="region-readout num" id="region-readout"></div>
       <p class="provenance">
         Treating only diagnosed pest zones is validated against Iowa State

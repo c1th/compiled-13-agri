@@ -97,6 +97,45 @@ body {
 
 .map-status { color: var(--muted); font-size: 12px; }
 
+/* ---------- Region list ---------- */
+
+.region-list { margin-top: 12px; }
+
+.region-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.region-badge {
+  background: rgba(74, 222, 128, 0.14);
+  color: var(--accent);
+  border-radius: 4px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.region-coords { color: var(--muted); flex: 1; }
+
+.region-acres { color: var(--text); }
+
+.region-tag {
+  background: rgba(74, 222, 128, 0.16);
+  border: none;
+  color: var(--accent);
+  font-family: var(--font-num);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  box-shadow: none;
+}
+
+.region-tag::before { display: none; }
+
 .search-bar {
   display: flex;
   align-items: center;
