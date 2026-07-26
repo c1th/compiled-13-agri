@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FieldLoop / PENUMBRA Safety Lab</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">FieldLoop <span class="brand-sub">/ PENUMBRA safety engine</span></div>
+    <div class="field-meta">
+      <span id="safety-context" class="field-date">&mdash;</span>
+      <a class="btn nav-btn" href="index.html">&larr; Field view</a>
+    </div>
+  </header>
+
+  <main class="layout safety-layout">
+    <ol class="steps" aria-label="Safety workflow">
+      <li class="done"><span class="step-n">1</span> Scout field</li>
+      <li class="done"><span class="step-n">2</span> Confirm pest</li>
+      <li><span class="step-n">3</span> Compare now vs next</li>
+      <li><span class="step-n">4</span> Source or export</li>
+    </ol>
+
+    <section class="panel safety-hero">
+      <div>
+        <span class="engine-kicker">PENUMBRA engine</span>
+        <h1>Safety margin first.</h1>
+        <p id="safety-intro">Loading confirmed field context&hellip;</p>
+      </div>
+      <button id="run-safety" class="btn btn-primary">Run safety screen</button>
+    </section>
+
+    <section class="panel safety-status-panel">
+      <div class="panel-title">Evidence trace</div>
+      <div id="safety-status" class="safety-status">Ready when field context is confirmed.</div>
+    </section>
+
+    <section class="panel decision-lane" id="use-now-panel">
+      <div class="lane-head">
+        <div>
+          <span class="lane-label">Use now</span>
+          <h2>Approved treatment</h2>
+        </div>
+        <span class="gate-badge">Label gate</span>
+      </div>
+      <div id="use-now-body" class="decision-empty">Run the safety screen to rank current options.</div>
+    </section>
+
+    <section class="panel decision-lane" id="develop-next-panel">
+      <div class="lane-head">
+        <div>
+          <span class="lane-label">Develop next</span>
+          <h2>Species-specific RNAi</h2>
+        </div>
+        <span class="gate-badge research">Wet-lab gate</span>
+      </div>
+      <div id="develop-next-body" class="decision-empty">PENUMBRA candidates will appear here.</div>
+    </section>
+
+    <section class="panel evidence-panel">
+      <div class="panel-title">Protected-species screen</div>
+      <div id="species-screen" class="decision-empty">No candidate selected.</div>
+    </section>
+
+    <section class="panel offers-panel">
+      <div class="panel-title">Merchant offers</div>
+      <div id="safety-offers" class="decision-empty">Select an approved option to search Channel3.</div>
+    </section>
+  </main>
+
+  <script src="data/rnai.js"></script>
+  <script src="js/safety.js"></script>
+</body>
+</html>

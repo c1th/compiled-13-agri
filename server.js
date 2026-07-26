@@ -2,7 +2,10 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const Anthropic = require('@anthropic-ai/sdk');
+const PDFDocument = require('pdfkit');
+const RNAI_CATALOG = require('./data/rnai.js');
 
 const app = express();
 app.use(express.json());
@@ -11,6 +14,10 @@ app.use(express.static(__dirname));
 
 app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.get('/safety', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'safety.html'));
 });
 
 // Biological treatment catalog. The analysis layer picks the optimal product
@@ -380,6 +387,206 @@ app.get('/api/geocode', async (req, res) => {
   }
 });
 
+// PENUMBRA runtime uses versioned, precomputed molecular evidence. The live
+// request combines that evidence with confirmed field context and performs a
+// deterministic safety-first ranking. Research candidates never become
+// operational treatments here.
+app.get('/api/rnai/library', (_req, res) => {
+  res.json({
+    version: RNAI_CATALOG.version,
+    jurisdiction: RNAI_CATALOG.jurisdiction,
+    evidence_scope: RNAI_CATALOG.evidence_scope,
+    crops: RNAI_CATALOG.crops,
+    pests: RNAI_CATALOG.pests
+  });
+});
+
+app.post('/api/rnai/recommend', (req, res) => {
+  const input = req.body || {};
+  const crop = RNAI_CATALOG.crops.find((item) => item.id === input.crop_id);
+  const pest = RNAI_CATALOG.pests.find((item) => item.id === input.pest_id);
+  if (!crop || !pest || pest.crop_id !== crop.id) {
+    return res.status(400).json({ error: 'unsupported_context', reason: 'Supported crop and pest pair required' });
+  }
+  if (!Array.isArray(input.confirmed_zone_ids) || !input.confirmed_zone_ids.length ||
+      input.confirmation_method !== 'manual') {
+    return res.status(400).json({
+      error: 'confirmation_required',
+      reason: 'At least one manually confirmed pest zone is required'
+    });
+  }
+
+  const useNow = RNAI_CATALOG.treatments
+    .filter((item) => item.crop_id === crop.id && item.pest_id === pest.id)
+    .slice()
+    .sort((a, b) => a.safety_tier - b.safety_tier ||
+      a.efficacy_tier - b.efficacy_tier || a.resistance_fit - b.resistance_fit);
+  const developNext = RNAI_CATALOG.candidates
+    .filter((item) => item.pest_id === pest.id)
+    .slice()
+    .sort((a, b) => {
+      if (a.status === 'blocked' && b.status !== 'blocked') return 1;
+      if (b.status === 'blocked' && a.status !== 'blocked') return -1;
+      return a.worst_risk_high - b.worst_risk_high ||
+        b.phylogenetic_margin.localeCompare(a.phylogenetic_margin) ||
+        b.efficacy_score - a.efficacy_score;
+    });
+
+  const runMaterial = JSON.stringify({
+    version: RNAI_CATALOG.version,
+    plan: input.plan_fingerprint,
+    crop: crop.id,
+    pest: pest.id,
+    zones: input.confirmed_zone_ids.slice().sort()
+  });
+  const runId = crypto.createHash('sha256').update(runMaterial).digest('hex').slice(0, 16);
+
+  res.json({
+    run_id: runId,
+    evidence_version: RNAI_CATALOG.version,
+    source: 'cached_evidence_live_ranking',
+    crop,
+    pest,
+    use_now: useNow,
+    develop_next: developNext,
+    warnings: [
+      RNAI_CATALOG.evidence_scope,
+      'Imagery anomalies do not identify pests; the pest assertion is manual.',
+      pest.operational_note
+    ]
+  });
+});
+
+// Exact approved-option lookup. Channel3 supplies merchant metadata only; the
+// registry above determines crop/pest suitability. No checkout is claimed.
+app.get('/api/channel3/offers/:treatmentId', async (req, res) => {
+  const treatment = RNAI_CATALOG.treatments.find((item) => item.id === req.params.treatmentId);
+  if (!treatment) {
+    return res.status(404).json({ error: 'unknown_treatment', reason: 'Approved treatment registry entry not found' });
+  }
+  const key = process.env.CHANNEL3_API_KEY;
+  if (!key) {
+    return res.status(502).json({ error: 'sourcing_unavailable', reason: 'No CHANNEL3_API_KEY set in .env' });
+  }
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    const response = await fetch('https://api.trychannel3.com/v1/search', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'x-api-key': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: treatment.channel3_query, limit: 8 })
+    });
+    clearTimeout(timer);
+    if (!response.ok) throw new Error('Channel3 responded ' + response.status);
+    const payload = await response.json();
+    const rows = Array.isArray(payload.products) ? payload.products : [];
+    const requiredTokens = treatment.name.toLowerCase().split(/[\s/]+/).filter((token) => token.length > 4);
+    const products = rows.map(normalizeChannel3Product)
+      .filter((product) => product.title && product.offers.length)
+      .filter((product) => {
+        const haystack = (product.title + ' ' + (product.brand || '')).toLowerCase();
+        return requiredTokens.some((token) => haystack.includes(token));
+      })
+      .slice(0, 4);
+
+    res.json({
+      source: 'channel3',
+      treatment_id: treatment.id,
+      query: treatment.channel3_query,
+      retrieved_at: new Date().toISOString(),
+      products
+    });
+  } catch (err) {
+    console.error('[channel3/offers]', err.message);
+    res.status(502).json({ error: 'sourcing_unavailable', reason: sourcingReason(err) });
+  }
+});
+
+function normalizeChannel3Product(product) {
+  return {
+    id: product.id || null,
+    title: product.title || '',
+    brand: product.brand_name || (product.brands && product.brands[0] && product.brands[0].name) || null,
+    image: product.image_url ||
+      (product.images && product.images[0] && (product.images[0].url || product.images[0])) || null,
+    offers: (Array.isArray(product.offers) ? product.offers : []).map((offer) => {
+      const priceObj = offer.price || {};
+      return {
+        domain: offer.domain || null,
+        availability: offer.availability || null,
+        url: offer.url || null,
+        price: typeof priceObj.price === 'number' ? priceObj.price : null,
+        currency: priceObj.currency || 'USD'
+      };
+    }).filter((offer) => offer.url)
+  };
+}
+
+app.post('/api/rnai/dossier', (req, res) => {
+  const body = req.body || {};
+  const context = body.context || {};
+  const crop = RNAI_CATALOG.crops.find((item) => item.id === context.crop_id);
+  const pest = RNAI_CATALOG.pests.find((item) => item.id === context.pest_id);
+  const candidate = RNAI_CATALOG.candidates.find((item) =>
+    item.id === body.candidate_id && pest && item.pest_id === pest.id);
+  if (!crop || !pest || !candidate) {
+    return res.status(400).json({ error: 'invalid_dossier_request', reason: 'Valid field context and candidate required' });
+  }
+  if (candidate.status === 'blocked') {
+    return res.status(409).json({ error: 'candidate_blocked', reason: candidate.warning });
+  }
+
+  const filename = 'fieldloop-penumbra-' + candidate.id + '.pdf';
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename="' + filename + '"');
+  const doc = new PDFDocument({ size: 'LETTER', margins: { top: 54, left: 54, right: 54, bottom: 54 } });
+  doc.pipe(res);
+  doc.fontSize(10).fillColor('#4b5563').text('FIELDLOOP / PENUMBRA', { characterSpacing: 1.4 });
+  doc.moveDown(0.5).fontSize(24).fillColor('#111827').text('RNAi safety dossier');
+  doc.fontSize(11).fillColor('#4b5563')
+    .text('Research prioritization artifact · not a product label or authorization to apply');
+  doc.moveDown(1.2);
+  dossierPair(doc, 'Field', context.field_name || 'Selected field');
+  dossierPair(doc, 'Crop / pest', crop.name + ' / ' + pest.name);
+  dossierPair(doc, 'Target gene', candidate.target_gene);
+  dossierPair(doc, 'Construct', candidate.id + ' · ' + candidate.length_nt + ' nt');
+  dossierPair(doc, 'Evidence version', RNAI_CATALOG.version + ' · ' + candidate.model_version);
+  dossierPair(doc, 'Sequence source', candidate.sequence_source);
+  doc.moveDown().fontSize(15).fillColor('#111827').text('Decision summary');
+  doc.moveDown(0.4).fontSize(11).fillColor('#1f2937')
+    .text('Efficacy constraint: ' + (candidate.efficacy_pass ? 'PASS' : 'FAIL') +
+      ' (' + (candidate.efficacy_score * 100).toFixed(1) + '% modeled score)');
+  doc.text('Worst modeled non-target effect: ' + (candidate.worst_risk_mean * 100).toFixed(1) +
+    '% (95% interval ' + (candidate.worst_risk_low * 100).toFixed(1) + '–' +
+    (candidate.worst_risk_high * 100).toFixed(1) + '%)');
+  doc.text('Nearest screened sequence match: ' + candidate.nearest_match + ' · ' +
+    candidate.max_contiguous_match_nt + ' nt contiguous');
+  doc.text('RNA-FM similarity: ' + candidate.embedding_similarity.toFixed(2));
+  doc.text('Phylogenetic context: ' + candidate.phylogenetic_margin);
+  doc.moveDown().fontSize(15).fillColor('#111827').text('Protected-species panel');
+  doc.moveDown(0.4).fontSize(10).fillColor('#1f2937');
+  RNAI_CATALOG.protected_species.forEach((species) => {
+    doc.text('• ' + species.name + ' — ' + species.role);
+  });
+  doc.moveDown().fontSize(15).fillColor('#111827').text('Limitations and gate');
+  doc.moveDown(0.4).fontSize(10).fillColor('#7c2d12')
+    .text(candidate.warning)
+    .text('No wet-lab validation was performed by FieldLoop. Delivery, uptake, formulation, persistence, and resistance evolution remain unresolved.')
+    .text('GBIF occurrence weighting is not yet available for arbitrary locations in this build.')
+    .text('The PENUMBRA external benchmark is not populated; intervals reflect the development corpus.');
+  doc.moveDown().fillColor('#4b5563').text('Generated ' + new Date().toISOString() +
+    ' · Manual pest confirmation · Plan ' + (context.plan_fingerprint || 'unknown'));
+  doc.end();
+});
+
+function dossierPair(doc, label, value) {
+  doc.fontSize(9).fillColor('#6b7280').text(label.toUpperCase());
+  doc.fontSize(11).fillColor('#111827').text(String(value));
+  doc.moveDown(0.45);
+}
+
 // Order confirmation endpoint. Fully local — no external supplier API.
 // Product sourcing via Channel3. The key stays server-side and never reaches
 // the browser. Returns real listings — title, brand, price, stock, buy link —
@@ -399,7 +606,7 @@ app.post('/api/purchase', async (req, res) => {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 12000);
-    const r = await fetch('https://api.trychannel3.com/v0/search', {
+    const r = await fetch('https://api.trychannel3.com/v1/search', {
       method: 'POST',
       signal: controller.signal,
       headers: { 'x-api-key': key, 'Content-Type': 'application/json' },
@@ -437,7 +644,7 @@ app.post('/api/purchase', async (req, res) => {
       query: product_query,
       quantity_gal,
       products,
-      order_id: 'FL-' + Date.now().toString(36).toUpperCase()
+      retrieved_at: new Date().toISOString()
     });
   } catch (err) {
     console.error('[purchase]', err.message);

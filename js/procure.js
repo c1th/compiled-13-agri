@@ -24,7 +24,7 @@ function initProcure(data) {
       '<div class="procure-info">' +
         '<span class="legend-swatch" style="background:' + g.color + '"></span>' +
         '<span class="procure-name">' + g.name + '</span>' +
-        '<span class="procure-qty"><span class="num">' + g.need + '</span> gal needed' + haveNote +
+        '<span class="procure-qty"><span class="num">' + g.need + '</span> gal needed' +
           ' &middot; <span class="num">' + g.zones + '</span> zones</span>' +
       '</div>' +
       '<button class="btn procure-order">Source <span class="num">' + g.qty + '</span> gal</button>' +
@@ -97,7 +97,7 @@ function renderListings(container, payload, quantityGal) {
         '<div class="num">' + (unit || '—') + '</div>' +
         '<div class="listing-line num">' + (line ? line + ' for ' + quantityGal + ' gal' : '') + '</div>' +
       '</div>' +
-      (p.url ? '<a class="btn listing-buy" href="' + escapeAttr(p.url) + '" target="_blank" rel="noopener">Buy</a>' : '') +
+      (p.url ? '<a class="btn listing-buy" href="' + escapeAttr(p.url) + '" target="_blank" rel="noopener">View merchant</a>' : '') +
     '</div>';
   }).join('');
 
@@ -108,7 +108,8 @@ function renderListings(container, payload, quantityGal) {
         '<span class="src-badge">Channel3</span>' +
       '</div>' +
       '<div class="listings">' + rows + '</div>' +
-      '<div class="kv-row"><span>Reference</span><span class="num">' + escapeText(payload.order_id || '—') + '</span></div>' +
+      '<div class="kv-row"><span>Retrieved</span><span class="num">' +
+        escapeText(payload.retrieved_at || 'live') + '</span></div>' +
     '</div>';
 }
 
