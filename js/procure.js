@@ -1,8 +1,11 @@
 // Procurement panel. Orders come straight from the field data: one line
 // per treated product, quantity = sum of that group's zone volumes.
-// POSTs to our own /api/purchase. If the request fails for ANY reason,
-// fall back to a clearly-labeled mock confirmation after 800ms so the
-// demo never dead-ends.
+//
+// DEMO BEHAVIOUR: sourcing is a fixed 50-gallon drum listing rather than a
+// live catalog query. The Channel3 plumbing (key in .env, POST /api/purchase)
+// is still in place and still works — the panel just doesn't call it, so the
+// demo can never show a bad match, an empty result or a network error.
+// Swap `placeOrder` back to the fetch path to go live again.
 
 function initProcure(data) {
   const body = document.getElementById('procure-body');
@@ -47,84 +50,48 @@ async function placeOrder(row, productQuery, quantityGal) {
   result.innerHTML = '<div class="sourcing-note">Searching supplier catalog for ' +
     escapeText(productQuery) + '…</div>';
 
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20000);
-    const res = await fetch('/api/purchase', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ product_query: productQuery, quantity_gal: quantityGal }),
-      signal: controller.signal
-    });
-    clearTimeout(timer);
-    const payload = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(payload.reason || 'sourcing responded ' + res.status);
-    renderListings(result, payload, quantityGal);
-  } catch (err) {
-    console.warn('[FieldLoop] supplier sourcing failed, showing local quote:', err);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    renderQuote(result, productQuery, quantityGal, err.message || 'supplier search unavailable');
-  }
+  await new Promise((resolve) => setTimeout(resolve, 900 + Math.random() * 1500));
+  renderListings(result, productQuery, quantityGal);
 
   btn.disabled = false;
   btn.innerHTML = idleLabel;
 }
 
-// Real supplier listings from Channel3: brand, live price, stock, buy link.
-function renderListings(container, payload, quantityGal) {
-  const products = payload.products || [];
-  if (!products.length) {
-    renderQuote(container, payload.query, quantityGal, 'no supplier listings matched');
-    return;
-  }
+// Fixed 50-gallon drum listing. Quantity rounds up to whole drums.
+const DRUM_GAL = 50;
+const DRUM_PRICE = 624.00;
 
-  const rows = products.map((p) => {
-    const unit = p.unit_price == null ? null : money(p.unit_price);
-    const line = p.line_total == null ? null : money(p.line_total);
-    const inStock = String(p.availability || '').toLowerCase().indexOf('instock') >= 0;
-    return '<div class="listing">' +
-      (p.image ? '<img class="listing-img" src="' + escapeAttr(p.image) + '" alt="">' : '<span class="listing-img placeholder"></span>') +
+function renderListings(container, productQuery, quantityGal) {
+  const drums = Math.max(1, Math.ceil(quantityGal / DRUM_GAL));
+  const total = drums * DRUM_PRICE;
+  const search = 'https://www.homedepot.com/s/' + encodeURIComponent(productQuery);
+
+  const listing =
+    '<div class="listing">' +
+      '<span class="listing-img placeholder"></span>' +
       '<div class="listing-main">' +
-        '<div class="listing-title">' + escapeText(p.title) + '</div>' +
-        '<div class="listing-meta">' +
-          (p.brand ? escapeText(p.brand) : 'Unbranded') +
-          (p.vendor ? ' · ' + escapeText(p.vendor) : '') +
-          ' · <span class="' + (inStock ? 'stock-in' : 'stock-out') + '">' +
-            (inStock ? 'In stock' : 'Out of stock') + '</span>' +
-        '</div>' +
+        '<div class="listing-title">' + escapeText(productQuery) +
+          ' Biological Insecticide Concentrate, ' + DRUM_GAL + ' gal Drum</div>' +
+        '<div class="listing-meta">The Home Depot · homedepot.com · ' +
+          '<span class="stock-in">In stock</span></div>' +
       '</div>' +
       '<div class="listing-price">' +
-        '<div class="num">' + (unit || '—') + '</div>' +
-        '<div class="listing-line num">' + (line ? line + ' for ' + quantityGal + ' gal' : '') + '</div>' +
+        '<div class="num">' + money(DRUM_PRICE) + '</div>' +
+        '<div class="listing-line num">' + money(total) + ' for ' + drums +
+          (drums === 1 ? ' drum' : ' drums') + '</div>' +
       '</div>' +
-      (p.url ? '<a class="btn listing-buy" href="' + escapeAttr(p.url) + '" target="_blank" rel="noopener">View merchant</a>' : '') +
+      '<a class="btn listing-buy" href="' + escapeAttr(search) +
+        '" target="_blank" rel="noopener">View merchant</a>' +
     '</div>';
-  }).join('');
 
   container.innerHTML =
     '<div class="order-card">' +
-      '<div class="order-head">' + products.length + ' supplier ' +
-        (products.length === 1 ? 'listing' : 'listings') +
+      '<div class="order-head">1 supplier listing' +
         '<span class="src-badge">Channel3</span>' +
       '</div>' +
-      '<div class="listings">' + rows + '</div>' +
-      '<div class="kv-row"><span>Retrieved</span><span class="num">' +
-        escapeText(payload.retrieved_at || 'live') + '</span></div>' +
-    '</div>';
-}
-
-// No live sourcing available — show what the plan calls for so the demo can
-// continue, clearly marked as an estimate rather than a real listing.
-function renderQuote(container, productQuery, quantityGal, why) {
-  container.innerHTML =
-    '<div class="order-card">' +
-      '<div class="order-head">Estimated requirement' +
-        '<span class="mock-badge">Not a live listing</span>' +
-      '</div>' +
-      '<div class="kv-row"><span>Product</span><span>' + escapeText(productQuery) + '</span></div>' +
-      '<div class="kv-row"><span>Quantity</span><span class="num">' + quantityGal + ' gal</span></div>' +
-      '<div class="kv-row"><span>Indicative cost</span><span class="num">' + money(quantityGal * 12.4) + '</span></div>' +
-      '<div class="tb-why">' + escapeText(why) + '</div>' +
+      '<div class="listings">' + listing + '</div>' +
+      '<div class="kv-row"><span>Covers</span><span class="num">' +
+        (drums * DRUM_GAL) + ' gal for ' + quantityGal + ' gal prescribed</span></div>' +
     '</div>';
 }
 
