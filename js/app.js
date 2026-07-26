@@ -48,7 +48,6 @@ function setData(plan) {
 // changes, so stale zones and acreage don't linger over new ground.
 function clearPlan() {
   sessionStorage.removeItem('fieldloop_plan');
-  sessionStorage.removeItem('fieldloop_rnai_context');
   DATA = emptyPlan(typeof getRegionBounds === 'function' ? getRegionBounds() : DATA.meta.bounds);
   refreshDataPanels();
 }
@@ -72,7 +71,6 @@ function emptyPlan(bounds) {
 
 function resetAllPanels() {
   sessionStorage.removeItem('fieldloop_plan');
-  sessionStorage.removeItem('fieldloop_rnai_context');
   DATA = (typeof FIELD !== 'undefined') ? FIELD : STUB;
   // Drop drawn regions and fleet too, so "R" really is a clean second run.
   if (typeof resetRegions === 'function') resetRegions();
@@ -94,4 +92,3 @@ registerPanel('breakdown', initBreakdown);
 registerPanel('analyze', initAnalyze);
 registerPanel('impact', initImpact);
 registerPanel('fleet', initFleet);
-registerPanel('rnai', initRnaiEntry);

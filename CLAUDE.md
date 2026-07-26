@@ -302,6 +302,16 @@ is derived from the plan (severities, areas, volumes); the modelling constants
 `IMPACT_LOSS_MIN` / `IMPACT_LOSS_SPAN` / `IMPACT_EFFICACY` live at the top of
 the file. Keep it structured and scannable; do not turn it back into plaintext.
 
+## PENUMBRA RNAi safety engine — removed
+
+A teammate landed a PENUMBRA RNAi safety engine (dashboard panel, `/safety`
+page, `/api/rnai/*` and `/api/channel3/offers` routes, PDF dossier via pdfkit).
+**The user asked for all of it to be removed** — `safety.html`, `js/safety.js`,
+`js/rnai-entry.js`, `data/rnai.js`, the server routes, the CSS block and the
+pdfkit dependency are all gone. Do not reintroduce it. The `penumbra/` Python
+research directory is untouched — it is a separate project, not wired to the
+dashboard.
+
 ## Log
 
 - Built dashboard (map, breakdown, procurement) and drone ops page.
