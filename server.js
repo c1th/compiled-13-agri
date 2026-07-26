@@ -176,6 +176,42 @@ dollars_saved = (total_acres - flagged_acres) x 34, rounded.`;
   }
 });
 
+// Place-name lookup, proxied so the browser never talks to a third party
+// directly and so we can send the User-Agent Nominatim's policy requires.
+// Purely user-triggered — nothing here runs at page load.
+app.get('/api/geocode', async (req, res) => {
+  const q = (req.query.q || '').toString().trim();
+  if (!q) return res.status(400).json({ error: 'q required' });
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&q=' +
+      encodeURIComponent(q);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const r = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'FieldLoop/0.1 (precision-agriculture demo)' }
+    });
+    clearTimeout(timer);
+    if (!r.ok) throw new Error('nominatim responded ' + r.status);
+    const rows = await r.json();
+    res.json({
+      results: rows.map((row) => ({
+        label: row.display_name,
+        lat: Number(row.lat),
+        lon: Number(row.lon),
+        // [south, north, west, east] -> our [W,S,E,N]
+        bounds: Array.isArray(row.boundingbox) && row.boundingbox.length === 4
+          ? [Number(row.boundingbox[2]), Number(row.boundingbox[0]),
+             Number(row.boundingbox[3]), Number(row.boundingbox[1])]
+          : null
+      }))
+    });
+  } catch (err) {
+    console.error('[geocode]', err.message);
+    res.status(502).json({ error: 'geocode_failed' });
+  }
+});
+
 // Order confirmation endpoint. Fully local — no external supplier API.
 app.post('/api/purchase', (req, res) => {
   const { product_query, quantity_gal } = req.body || {};

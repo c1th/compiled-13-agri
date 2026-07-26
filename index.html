@@ -20,6 +20,12 @@
   <main class="layout">
     <section class="panel map-panel">
       <div class="panel-title">Field map &mdash; treatment intensity</div>
+      <form class="search-bar" id="search-form" autocomplete="off">
+        <input id="search-input" class="inv-input search-input" type="text"
+               placeholder="Search a place, or type coordinates as lat, lon">
+        <button type="submit" class="btn">Go</button>
+        <span id="search-status" class="search-status"></span>
+      </form>
       <div class="map-toolbar">
         <button id="draw-region" class="btn">Draw region</button>
         <label class="field-label" for="band-select">View</label>

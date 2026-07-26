@@ -49,6 +49,7 @@ function initGeeMap(data) {
   renderMapLegend(data);
   populateBandSelect();
   renderBandScale();
+  initSearch();
   updateRegionReadout();
 
   const drawBtn = document.getElementById('draw-region');
@@ -202,6 +203,83 @@ function renderMapLegend(data) {
 
 function setMapStatus(text) {
   const el = document.getElementById('map-status');
+  if (el) el.textContent = text;
+}
+
+// ---------- Location search ----------
+//
+// Accepts either a place name ("Ames, Iowa") or raw coordinates
+// ("42.0351, -93.5696"). Coordinates resolve instantly with no network call;
+// names go through our own /api/geocode proxy.
+
+function initSearch() {
+  const form = document.getElementById('search-form');
+  const input = document.getElementById('search-input');
+  if (!form || !input) return;
+  form.onsubmit = (e) => {
+    e.preventDefault();
+    runSearch(input.value.trim());
+  };
+}
+
+// "42.03, -93.57" / "42.03 -93.57" / "42.03N 93.57W"
+function parseCoords(text) {
+  const m = text.match(/^\s*(-?\d+(?:\.\d+)?)\s*°?\s*([NnSs])?\s*[,\s]\s*(-?\d+(?:\.\d+)?)\s*°?\s*([EeWw])?\s*$/);
+  if (!m) return null;
+  let a = parseFloat(m[1]);
+  let b = parseFloat(m[3]);
+  if (m[2] && m[2].toLowerCase() === 's') a = -a;
+  if (m[4] && m[4].toLowerCase() === 'w') b = -b;
+  // Assume lat,lon; if that's impossible but lon,lat works, swap.
+  let lat = a, lon = b;
+  if (Math.abs(lat) > 90 && Math.abs(lon) <= 90) { lat = b; lon = a; }
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return { lat, lon };
+}
+
+async function runSearch(query) {
+  if (!query) return;
+  const coords = parseCoords(query);
+  if (coords) {
+    goTo(coords.lat, coords.lon, null);
+    setSearchStatus('Moved to ' + coords.lat.toFixed(4) + ', ' + coords.lon.toFixed(4) +
+      '. Draw a region to survey it.');
+    return;
+  }
+
+  setSearchStatus('Searching…');
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 9000);
+    const res = await fetch('/api/geocode?q=' + encodeURIComponent(query), { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error('geocode responded ' + res.status);
+    const data = await res.json();
+    if (!data.results || !data.results.length) {
+      setSearchStatus('No match for “' + query + '”. Try a place name, or type coordinates as lat, lon.');
+      return;
+    }
+    const hit = data.results[0];
+    goTo(hit.lat, hit.lon, hit.bounds);
+    setSearchStatus(hit.label + ' — draw a region to survey it.');
+  } catch (err) {
+    console.warn('[FieldLoop] geocode failed:', err);
+    setSearchStatus('Search unavailable offline. Type coordinates instead, as lat, lon.');
+  }
+}
+
+function goTo(lat, lon, bounds) {
+  if (!geeMap) return;
+  if (bounds) {
+    const [w, s, e, n] = bounds;
+    geeMap.fitBounds([[s, w], [n, e]], { padding: [20, 20], maxZoom: 15 });
+  } else {
+    geeMap.setView([lat, lon], 14);
+  }
+}
+
+function setSearchStatus(text) {
+  const el = document.getElementById('search-status');
   if (el) el.textContent = text;
 }
 
