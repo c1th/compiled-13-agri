@@ -292,3 +292,87 @@ body {
   margin-top: 8px;
   line-height: 1.5;
 }
+
+/* ---------- Buttons & inputs (shared) ---------- */
+
+.btn,
+.file-btn {
+  display: inline-block;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-family: var(--font-prose);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn:hover:not(:disabled),
+.file-btn:hover { border-color: var(--muted); }
+
+.btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ---------- Agronomist ---------- */
+
+.agronomist-panel { grid-column: 1; }
+
+.ag-stage {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.ag-thumb {
+  max-width: 140px;
+  max-height: 100px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  object-fit: cover;
+}
+
+.ag-card {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+
+.ag-pest { font-weight: 600; margin-bottom: 10px; }
+
+.ag-conf-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 5px;
+}
+
+.ag-conf-label { color: var(--muted); }
+
+.ag-bar {
+  height: 6px;
+  background: var(--bg);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.ag-bar-fill {
+  height: 100%;
+  background: var(--text);
+  border-radius: 3px;
+}
+
+.ag-rec-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.ag-rec-row > span:first-child { color: var(--muted); }
+
+.ag-error { margin-top: 14px; color: var(--muted); font-size: 13px; }
