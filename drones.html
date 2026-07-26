@@ -5,6 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FieldLoop — Drone Operations</title>
   <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Temporary sizing for the 3D preview mount; the styles.css owner will
+       fold .drone-preview-panel / .drone-3d-wrap styling into styles.css. */
+    .drone-3d-wrap {
+      width: 100%;
+      min-height: 320px;
+      height: 320px;
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+    }
+    .drone-3d-wrap canvas { display: block; }
+  </style>
 </head>
 <body>
   <header class="topbar">
@@ -23,6 +36,11 @@
         <div class="map-legend" id="map-legend"></div>
         <div class="region-readout" id="origin-hint"></div>
       </div>
+    </section>
+
+    <section class="panel drone-preview-panel" id="drone-preview-panel">
+      <div class="panel-title">3D field preview</div>
+      <div class="drone-3d-wrap" id="drone-3d-wrap" style="min-height:320px"></div>
     </section>
 
     <section class="panel drone-config-panel">
@@ -52,6 +70,7 @@
   <script src="data/catalog.js"></script>
   <script src="js/weighted-map.js"></script>
   <script src="js/field-map.js"></script>
+  <script src="js/field-3d.js"></script>
   <script src="js/drones.js"></script>
   <script src="js/swarm-mount.js"></script>
   <script src="js/swarm.js"></script>
