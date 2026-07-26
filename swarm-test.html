@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Swarm planner test</title>
+<style>
+  body { font-family: ui-monospace, Menlo, monospace; font-size: 13px; padding: 20px; background: #fcfcfb; color: #0b0b0b; }
+  h2 { font-size: 14px; margin: 24px 0 8px; }
+  button, select { padding: 8px 14px; font-size: 13px; margin-right: 8px; margin-bottom: 12px; }
+  table { border-collapse: collapse; margin-bottom: 16px; }
+  th, td { border: 1px solid #ccc; padding: 4px 10px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  .winner { background: #cde2fb; font-weight: bold; }
+  pre { background: #f0efec; padding: 10px; overflow-x: auto; }
+</style>
+</head>
+<body>
+<h1>Swarm planner test harness (real FIELD/STUB contract)</h1>
+<label>Data source:
+  <select id="source">
+    <option value="stub">STUB (3 zones, 1 drone)</option>
+    <option value="field" selected>FIELD — Hartley North 160 (14 zones, 3 drones)</option>
+  </select>
+</label>
+<label>Number of drones: <input id="n" type="number" value="4" min="1" max="8" style="width:50px"></label>
+<button id="run">Generate random fleet + plan routes</button>
+<div id="output"></div>
+
+<script src="data/stub-zones.js"></script>
+<script src="data/zones.js"></script>
+<script src="js/swarm.js"></script>
+<script>
+function renderFleet(fleet) {
+  let html = "<h2>Fleet</h2><table><tr><th>id</th><th>carries</th><th>tank (gal)</th><th>battery (km)</th><th>x</th><th>y</th></tr>";
+  for (const d of fleet) {
+    html += `<tr><td>${d.id}</td><td>${d.carries}</td><td>${d.tank_gal}</td><td>${d.battery_km}</td><td>${d.x.toFixed(2)}</td><td>${d.y.toFixed(2)}</td></tr>`;
+  }
+  return html + "</table>";
+}
+
+function renderMetrics(alternatives, recommended) {
+  let html = "<h2>Strategy comparison</h2><table><tr><th>strategy</th><th>treated</th><th>% covered</th><th>severity-wtd acres</th><th>gal used</th><th>distance (km)</th><th>uncovered</th><th>score</th></tr>";
+  for (const [name, m] of Object.entries(alternatives)) {
+    const cls = name === recommended ? "winner" : "";
+    html += `<tr class="${cls}"><td>${name}${name === recommended ? " ★" : ""}</td><td>${m.treatedCount}/${m.treatableCount}</td><td>${m.pctCovered}%</td><td>${m.severityWeightedAcres}</td><td>${m.totalGalUsed}</td><td>${m.totalDistanceKm}</td><td>${m.uncoveredCount}</td><td>${m.score}</td></tr>`;
+  }
+  return html + "</table>";
+}
+
+function renderPlan(plan) {
+  let html = `<h2>Recommended plan &mdash; ${plan.strategy}</h2><pre>`;
+  for (const d of plan.drones) {
+    const route = d.route.map(z => `${z.zone_id}(sev ${z.severity}, pri ${z.priority})`).join(" → ") || "(none)";
+    html += `${d.id} [${d.carries}, ${d.gal_remaining}gal left, ${d.battery_remaining_km}km left]: ${route}\n`;
+  }
+  html += "</pre>";
+  if (plan.uncovered.length) {
+    html += "<h2>Uncovered zones</h2><pre>";
+    for (const u of plan.uncovered) html += `${u.zone_id}: ${u.reason}\n`;
+    html += "</pre>";
+  }
+  return html;
+}
+
+document.getElementById("run").addEventListener("click", () => {
+  const data = document.getElementById("source").value === "field" ? FIELD : STUB;
+  const n = parseInt(document.getElementById("n").value, 10);
+  const fleet = generateRandomFleet(n, data);
+  const plan = planSwarmRoutes(data, fleet);
+  document.getElementById("output").innerHTML =
+    renderFleet(fleet) + renderMetrics(plan.alternatives, plan.strategy) + renderPlan(plan);
+});
+
+document.getElementById("run").click();
+</script>
+</body>
+</html>

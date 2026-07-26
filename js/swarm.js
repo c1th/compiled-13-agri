@@ -2,10 +2,11 @@
 // every other panel gets (FIELD or STUB from data/zones.js / stub-zones.js)
 // and returns a plan object other panels/teammates can render however they like.
 //
-// data.fleet is the frozen contract's drone roster: { id, home:[x,y], carries, tank_gal }.
-// It has no battery/range field, so battery_km is synthesized here per drone
-// (randomized unless a drone already carries one) — that's the piece this
-// module actually adds on top of the contract.
+// Each run gets its own randomized fleet — how much pesticide each drone is
+// carrying, which type, and where it's launching from — rather than reusing
+// a fixed roster. Real fleets vary mission to mission (which drones are
+// fueled/loaded and staged where), so a fresh random fleet each run is more
+// realistic than pretending the same 3 drones are always in the same state.
 
 function randRange(min, max) { return min + Math.random() * (max - min); }
 function choice(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
@@ -19,9 +20,28 @@ function randomPerimeterPoint() {
   return { x: 0, y: 1 - t };
 }
 
-// Real fleet + synthesized battery. Never overwrites a field the contract
-// already provides — only fills in what's missing (battery_km).
-function loadFleet(data) {
+// Default fleet generator: random pesticide type, random tank fill, random
+// launch position, random battery, for every drone. treatment types are
+// pulled from data.treatments (excluding "none", which means "no spray
+// needed" rather than a real product to carry).
+function generateRandomFleet(n, data) {
+  const types = Object.keys(data.treatments).filter(k => k !== "none");
+  return Array.from({ length: n }, (_, i) => {
+    const p = randomPerimeterPoint();
+    return {
+      id: "D" + (i + 1),
+      carries: choice(types),
+      tank_gal: +randRange(3, 8).toFixed(2),
+      battery_km: +randRange(5, 20).toFixed(2),
+      x: p.x, y: p.y
+    };
+  });
+}
+
+// The teammate's fixed roster, for when you want a deterministic/known
+// fleet instead of a random one (battery_km still synthesized, since the
+// contract doesn't define one).
+function loadFixedFleet(data) {
   return data.fleet.map(d => ({
     id: d.id,
     carries: d.carries,
@@ -30,23 +50,6 @@ function loadFleet(data) {
     x: d.home[0],
     y: d.home[1]
   }));
-}
-
-// For stress-testing with more drones than the fixed roster provides.
-// treatment types are pulled from data.treatments (excluding "none", which
-// means "no spray needed" rather than a real product).
-function generateSyntheticFleet(n, data) {
-  const types = Object.keys(data.treatments).filter(k => k !== "none");
-  return Array.from({ length: n }, (_, i) => {
-    const p = randomPerimeterPoint();
-    return {
-      id: "SYN-" + (i + 1),
-      carries: choice(types),
-      tank_gal: +randRange(3, 8).toFixed(2),
-      battery_km: +randRange(5, 20).toFixed(2),
-      x: p.x, y: p.y
-    };
-  });
 }
 
 function makeDistanceKm(bounds) {
@@ -195,8 +198,10 @@ function classifyUncovered(zones, drones) {
 // Main entry point. Runs all strategies against identical cloned state,
 // picks the highest-scoring one, and returns a plain object ready to hand
 // to another panel/teammate — no DOM, no globals mutated.
+// Pass fleetOverride to test a specific fleet (e.g. loadFixedFleet(data));
+// otherwise a fresh random fleet is generated every call.
 function planSwarmRoutes(data, fleetOverride) {
-  const fleet = fleetOverride || loadFleet(data);
+  const fleet = fleetOverride || generateRandomFleet(data.fleet.length, data);
   const distanceKm = makeDistanceKm(data.meta.bounds);
   const runs = {};
   for (const [name, fn] of Object.entries(STRATEGIES)) {
