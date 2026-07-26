@@ -8,37 +8,18 @@ function initProcure(data) {
   const body = document.getElementById('procure-body');
   body.innerHTML = '';
 
-  // On-hand stock from the pesticide shed (js/shed.js) nets down the order —
-  // it never changes what or how much the plan prescribes.
-  const shedItems = (typeof getShedInventory === 'function') ? getShedInventory() : [];
-  const onHandFor = (key, name) => shedItems
-    .filter((i) => i.catalog_id === key || i.name.toLowerCase() === name.toLowerCase())
-    .reduce((sum, i) => sum + i.qty_gal, 0);
-
   const groups = Object.keys(data.treatments)
     .filter((k) => k !== 'none' && data.zones.some((z) => z.treatment_id === k))
     .map((key) => {
       const t = data.treatments[key];
       const zones = data.zones.filter((z) => z.treatment_id === key);
       const need = Math.ceil(zones.reduce((sum, z) => sum + z.volume_gal, 0));
-      const have = onHandFor(key, t.name);
-      return {
-        key,
-        name: t.name,
-        color: t.color,
-        zones: zones.length,
-        need,
-        have,
-        qty: Math.max(0, Math.ceil(need - have))
-      };
+      return { key, name: t.name, color: t.color, zones: zones.length, need, qty: need };
     });
 
   for (const g of groups) {
     const row = document.createElement('div');
     row.className = 'procure-row';
-    const haveNote = g.have > 0
-      ? ' &middot; <span class="num">' + Number(g.have.toFixed(1)) + '</span> gal in shed'
-      : '';
     row.innerHTML =
       '<div class="procure-info">' +
         '<span class="legend-swatch" style="background:' + g.color + '"></span>' +
@@ -46,9 +27,7 @@ function initProcure(data) {
         '<span class="procure-qty"><span class="num">' + g.need + '</span> gal needed' + haveNote +
           ' &middot; <span class="num">' + g.zones + '</span> zones</span>' +
       '</div>' +
-      (g.qty > 0
-        ? '<button class="btn procure-order">Order <span class="num">' + g.qty + '</span> gal</button>'
-        : '<span class="procure-covered">Covered from your shed &mdash; nothing to order</span>') +
+      '<button class="btn procure-order">Source <span class="num">' + g.qty + '</span> gal</button>' +
       '<div class="procure-result"></div>';
 
     const orderBtn = row.querySelector('.procure-order');
