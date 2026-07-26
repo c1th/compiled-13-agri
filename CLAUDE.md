@@ -105,6 +105,11 @@ FIELD = {
 
 ## Layout
 
+**The dashboard is standalone.** Every link to `drones.html` was removed at the
+user's request — `index.html` is the whole product now. `drones.html`,
+`js/swarm.js`, `js/swarm-mount.js` and `js/field-3d.js` still exist and belong
+to the teammate; do not wire navigation back to them without being asked.
+
 - `index.html` — dashboard: how-to-use steps, location search, map with band
   selector and multi-region drawing, weighted treatment layer, recommended
   distribution, run-analysis bar, procurement. **No KPI row and no inventory
@@ -192,7 +197,32 @@ Both optional; the app degrades gracefully without either.
   credits, key rejected, rate limited, refusal) and the UI states it, so a
   billing problem never masquerades as normal mock behaviour.
 
+## Analysis trace — the live feed
+
+`js/trace.js` renders a running log of the survey while it happens. Steps come
+from three real places: `js/bands.js` (tile fetch, raster decode, index maths),
+`js/analyze.js` (geodesy, geometry reconciliation, volume derivation), and the
+server stream (schema compile, inference channel, per-zone delineation, the
+model's own summarised reasoning).
+
+Two deliberate choices, do not "fix" them:
+- **Paced on purpose.** `tracePause` / `traceBeat` slow the client steps and the
+  server sleeps between its own. The pipeline really is faster than a human can
+  read; the delay is presentation, not work.
+- **Jargon is accurate.** Every technical term maps to something the code
+  actually does (EPSG:3857 reprojection, XYZ tile pyramid, chromatic
+  coordinates, VARI/ExG/GLI, strict JSON Schema decode, Gaussian accumulation).
+  Do not add terminology for a step that is not really performed.
+
+The reasoning line is genuine model output — `thinking: {type:'adaptive',
+display:'summarized'}` streamed from `/api/analyze/stream`.
+
 ## Analysis layer
+
+`POST /api/analyze/stream` is the primary path: same input, but returns SSE
+trace events (`step`, `thinking`, `usage`, `done`, `error`) so the UI can narrate
+the run. `POST /api/analyze` is the non-streaming equivalent and the fallback.
+Both share `buildAnalysisPrompt` and `failureReason`.
 
 `POST /api/analyze` takes `{ bounds, total_acres }` and calls `claude-opus-5`
 via the official SDK with structured outputs (strict JSON schema), refusal
@@ -225,6 +255,8 @@ in a real run and report back if the canvas doesn't render or console errors.
 ## Log
 
 - Built dashboard (map, breakdown, procurement) and drone ops page.
+- Added the live analysis trace (streamed reasoning + pipeline telemetry) and
+  made the dashboard standalone by removing all drone-page navigation.
 - Removed at the user's request — **do not reintroduce**: AI-agronomist panel,
   Channel3 procurement proxy, KPI row (pesticide-reduction + dollars-saved
   cards), pesticide-inventory panel.
