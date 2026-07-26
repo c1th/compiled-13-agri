@@ -15,6 +15,11 @@ project changes; it is the first thing read at the start of a session.
 - Push even when more work is coming in the same turn. Never leave a finished,
   verified change sitting unpushed while starting the next one.
 - Branch is `main`; remote is `origin` (github.com/c1th/compiled-13-agri).
+- **The repo is PUBLIC. Never commit a credential.** `git add -A` has twice
+  swept up a real key a human pasted into a tracked file — check `git diff
+  --cached` for secrets before every commit. Live keys belong in `.env`
+  (gitignored); tracked templates like `.env.example` keep blank placeholders.
+  GitHub push protection is the last line of defence, not the first.
 
 ## What this is
 
@@ -36,9 +41,11 @@ under the map: region bounds · total field · acres treated.
 
 - Vanilla JS + plain CSS. **No** React, TypeScript, Vite/webpack, build step,
   Tailwind, or runtime CDN links. Must run offline if venue wifi dies.
-- Third-party libs are **vendored** into `vendor/` (Leaflet, Earth Engine JS
-  client, `three.module.js`) and served locally. Never add a
-  `<script src="https://...">`; `import()` of a local `vendor/*.js` path is fine.
+- Third-party libs are **vendored** into `vendor/` (Leaflet, `three.module.js`)
+  and served locally. Never add a `<script src="https://...">`; `import()` of a
+  local `vendor/*.js` path is fine. Map *tiles* and the geocode lookup are
+  runtime network calls, which is fine — they are user-triggered, never on page
+  load, and every one has an offline fallback.
 - One Node/Express server (`server.js`) serving static files + the API routes.
   `npm install && node server.js` is the entire setup.
 - **UI direction pivoted (superseded the old dark-hackathon palette below):**
@@ -98,34 +105,70 @@ FIELD = {
 
 ## Layout
 
-- `index.html` — dashboard: Earth Engine map with region drawing and the
-  weighted treatment layer, recommended distribution, run-analysis bar,
-  procurement. **No KPI row and no inventory panel** — both removed on request.
+- `index.html` — dashboard: how-to-use steps, location search, map with band
+  selector and multi-region drawing, weighted treatment layer, recommended
+  distribution, run-analysis bar, procurement. **No KPI row and no inventory
+  panel** — both removed on request.
 - `drones.html` — drone operations: static zone map, per-drone config
   (origin via map click, pesticide, tank gallons), recommended assignments,
   swarm mount.
 - `js/` — `app.js` (dashboard bootstrap), `breakdown.js` (recommended
-  distribution), `geemap.js` (Leaflet + Earth Engine), `field-map.js` (static
-  map, also the offline fallback), `weighted-map.js` (density renderer),
-  `analyze.js`, `procure.js`, `drones.js`, `swarm-mount.js` (integration seam),
-  `config.js` (public client IDs).
+  distribution), `map-panel.js` (Leaflet map, regions, search), `bands.js`
+  (spectral views + land-cover check), `field-map.js` (static map, also the
+  offline fallback), `weighted-map.js` (classified treatment raster),
+  `analyze.js`, `procure.js`, `drones.js`, `swarm-mount.js` (integration seam).
 - `data/` — `zones.js` (FIELD), `stub-zones.js` (STUB fallback),
   `catalog.js` (biological catalog, mirrors the one in `server.js`).
 - `vendor/` — Leaflet + Earth Engine client, committed for offline use.
 
-## Treatment rendering — weighted, not circles
+## Map, bands and regions — no Earth Engine
 
-Treatment is drawn as a **continuous weighted density field**, never as
-discrete circle markers. `js/weighted-map.js` accumulates a Gaussian per
-treated zone (σ from area, peak from severity), tinted with the product colour
-so overlapping products blend by weight, and returns a canvas. `geemap.js`
-places it as an `L.imageOverlay` over the region bounds; `field-map.js` places
-it as an `<img>` layer over the static imagery.
+**Earth Engine was removed at the user's request** (OAuth sign-in, vendored
+client and credentials file all deleted). Do not reintroduce it.
+
+`js/bands.js` computes the spectral views client-side from the Esri satellite
+tiles: it reads tile pixels into a canvas and derives real RGB vegetation
+indices (VARI, Excess Green, GLI) plus bare-soil and water indices, painted as
+classified cells. Works with no key and no sign-in. Esri tiles send
+`Access-Control-Allow-Origin: *`, which is what makes the pixel read legal —
+if that ever changes, proxy the tiles through the server.
+
+Honesty rule: true NDVI/NDMI need near-infrared, which public RGB basemaps do
+not carry. Label the layers as what they actually are; don't call an RGB index
+"NDVI" in the UI.
+
+**Multiple regions** are supported. `map-panel.js` owns `regions[]`; each is
+analysed separately and `analyze.js` merges them, recomputing zone `x`/`y`
+against the **union extent** so the frozen 0..1 origin-top-left contract still
+holds downstream. Each region gets its own raster overlay.
+
+**Location search** accepts a place name (via the `/api/geocode` proxy, so the
+browser never calls a third party directly) or raw `lat, lon`.
+
+## Treatment rendering — classified raster, not circles
+
+Treatment is drawn as a **weighted, quantized raster**, never as discrete
+circle markers and never as a smooth gradient. `js/weighted-map.js` accumulates
+a Gaussian per treated zone (σ from area, peak from severity), tinted with the
+product colour so overlapping products blend by weight, then snaps intensity to
+5 classes on a coarse grid. Render it with `image-rendering: pixelated` — the
+hard cell edges are the intended look. `map-panel.js` places it as an
+`L.imageOverlay` per region; `field-map.js` places it as an `<img>` layer.
 
 Treated zones still carry an *invisible* marker purely as a hover target for
 the tooltip — the density layer is the only visual. Do-not-spray zones keep
 their dashed outline on top. If you touch this, do not reintroduce filled
 circles for treatment.
+
+## Land-cover check — never invent crops on bare ground
+
+Before a region is analysed, `sampleRegionCover()` reads the imagery inside it
+and classifies vegetation and water fraction. Open water, bare ground and
+sparse scrub are marked not-plantable and **skipped**, with the reason shown in
+the region row, the map status and the distribution panel. Without that check
+the analysis layer makes the same call from the coordinates alone. Do not
+weaken this — inventing crop zones on ocean or desert is the most obvious way
+the demo can look fake.
 
 ## Treatment selection — optimal, not stock-constrained
 
@@ -141,11 +184,13 @@ severity > 0.8. Keep the two catalog copies in sync when editing.
 Both optional; the app degrades gracefully without either.
 
 - `.env` → `ANTHROPIC_API_KEY` — enables real Claude analysis on `/api/analyze`.
-  Server-side only, never reaches the browser. Copy from `.env.example`.
-  `.env` is gitignored.
-- `js/config.js` → `EE_CLIENT_ID` / `EE_PROJECT` — enables the Earth Engine
-  NDVI overlay. OAuth **client IDs are public**, so this file is committed;
-  never put a secret here.
+  Server-side only, never reaches the browser. `.env` is gitignored; keep the
+  tracked `.env.example` placeholder **blank**.
+- No other credentials exist. Earth Engine is gone; the map and band views need
+  no key at all.
+- When the live call fails, `/api/analyze` returns a `reason` (no key, out of
+  credits, key rejected, rate limited, refusal) and the UI states it, so a
+  billing problem never masquerades as normal mock behaviour.
 
 ## Analysis layer
 
@@ -183,8 +228,11 @@ in a real run and report back if the canvas doesn't render or console errors.
 - Removed at the user's request — **do not reintroduce**: AI-agronomist panel,
   Channel3 procurement proxy, KPI row (pesticide-reduction + dollars-saved
   cards), pesticide-inventory panel.
-- Pivoted the map from a static image to Leaflet + Earth Engine with region
-  drawing, and added the Claude analysis layer.
+- Pivoted the map from a static image to Leaflet with region drawing, and added
+  the Claude analysis layer.
+- Removed Earth Engine entirely; band views are now computed from the imagery.
+- Added location search, multiple regions, the land-cover check, the classified
+  pixel raster, and the how-to-use steps.
 - Replaced circle markers with the weighted treatment density map, and dropped
   the inventory input in favour of an unconstrained optimal prescription.
 - Drone page assignments are greedy nearest-first within tank capacity, shown
