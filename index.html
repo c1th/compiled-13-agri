@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FieldLoop</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">FieldLoop</div>
+    <div class="field-meta">
+      <span id="field-name" class="field-name">—</span>
+      <span id="field-date" class="field-date">—</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section id="kpi-row" class="kpi-row" aria-label="Key metrics"></section>
+    <p class="provenance">
+      Reduction validated against Iowa State (76% avg field-area savings) and
+      Univ. of Arkansas (43&ndash;59%) precision-spray trials.
+    </p>
+  </main>
+
+  <script src="data/stub-zones.js"></script>
+  <script src="data/zones.js"></script>
+  <script src="js/kpi.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
