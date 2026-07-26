@@ -1,0 +1,76 @@
+row_index,evidence_id,study_id,construct_accession,construct_sequence,nontarget_transcript_accession,matched_window_sequence,match_source,max_match_lower,max_match_upper,extraction_citation,notes
+0,bachman_2013:000,bachman_2013,,,,,reported,240,240,10.1007/s11248-013-9716-5,LC50 vs WCR; self-match
+1,bachman_2013:001,bachman_2013,,,,,reported,186,186,10.1007/s11248-013-9716-5,LC50; 98.8% identity; 186 perfect 21-mers
+2,bachman_2013:002,bachman_2013,,,,,reported,14,14,10.1007/s11248-013-9716-5,NOEC at 5000; longest contiguous 14 nt
+3,bachman_2013:003,bachman_2013,,,,,reported,11,11,10.1007/s11248-013-9716-5,NOEC; longest contiguous 11 nt
+4,bachman_2013:004,bachman_2013,,,,,inferred,0,12,10.1007/s11248-013-9716-5,NOEC; ladybeetle; no 21-mer matches reported
+5,bachman_2013:005,bachman_2013,,,,,inferred,0,12,10.1007/s11248-013-9716-5,NOEC; survival 92% both arms
+6,bachman_2013:006,bachman_2013,,,,,inferred,0,12,10.1007/s11248-013-9716-5,NOEC carabid
+7,bachman_2013:007,bachman_2013,,,,,inferred,0,12,10.1007/s11248-013-9716-5,100% survival both arms
+8,bachman_2013:008,bachman_2013,,,,,inferred,0,12,10.1007/s11248-013-9716-5,parasitoid NOEC
+9,bachman_2013:009,bachman_2013,,,,,reported,14,14,10.1007/s11248-013-9716-5,longest contiguous <=14 nt; survival NS
+10,bachman_2013:010,bachman_2013,,,,,inferred,0,12,10.1007/s11248-013-9716-5,NOEC at 500 ng/mL
+11,bachman_2013:011,bachman_2013,,,,,inferred,0,12,10.1007/s11248-013-9716-5,survival NS vs control
+12,bachman_2013:012,bachman_2013,,,,,inferred,0,12,10.1007/s11248-013-9716-5,survival NS
+13,bachman_2013:013,bachman_2013,,,,,reported,15,15,10.1007/s11248-013-9716-5,longest contiguous <=15 nt
+14,bachman_2013:014,bachman_2013,,,,,reported,21,21,10.1007/s11248-013-9716-5,Table3 hetero dsRNA from Acalymma_vittatum fed to WCR. Active; >=1 21-mer
+15,bachman_2013:015,bachman_2013,,,,,reported,21,21,10.1007/s11248-013-9716-5,Table3 hetero dsRNA from Cerotoma_trifurcata fed to WCR. Active
+16,bachman_2013:016,bachman_2013,,,,,reported,21,21,10.1007/s11248-013-9716-5,Table3 hetero dsRNA from Galerucella_calamariensis fed to WCR. Active; only 3 perfect 21-mers
+17,bachman_2013:017,bachman_2013,,,,,reported,19,19,10.1007/s11248-013-9716-5,Table3 hetero dsRNA from Microtheca_ochroloma fed to WCR. Not active; no 21-mer
+18,bachman_2013:018,bachman_2013,,,,,reported,19,19,10.1007/s11248-013-9716-5,Table3 hetero dsRNA from Chrysolina_quadrigemina fed to WCR. Not active; 19 nt max
+19,bolognesi_2012:019,bolognesi_2012,,,,,reported,21,21,10.1371/journal.pone.0047534,Single 21-mer embedded in 240bp carrier; active at elevated dose
+20,bolognesi_2012:020,bolognesi_2012,,,,,reported,240,240,10.1371/journal.pone.0047534,Full DvSnf7_240 LC50 ~4.3 ng/mL
+21,bolognesi_2012:021,bolognesi_2012,,,,,reported,27,27,10.1371/journal.pone.0047534,dsRNA length <~60 bp inactive even with contiguous match
+22,bachman_2020:022,bachman_2020,,,,,reported,19,19,10.3389/fpls.2020.01303,CqSnf7 ortholog single 19nt match; inactive at limit dose
+23,bachman_2020:023,bachman_2020,,,,,reported,20,20,10.3389/fpls.2020.01303,DpSnf7 single 20nt match; inactive
+24,bachman_2020:024,bachman_2020,,,,,reported,21,21,10.3389/fpls.2020.01303,DvSnf7_21.7 single 21nt match embedded; active at high dose
+25,tan_2016:025,tan_2016,,,,,inferred,0,14,10.1002/etc.3075,Adult/larval honey bee dietary DvSnf7; no impact reported
+26,tan_2016:026,tan_2016,,,,,inferred,0,14,10.1002/etc.3075,Larval development / eclosion endpoints NS
+27,velez_2016:027,velez_2016,,,,,reported,15,15,10.1002/ps.4037,Dvv vATPase-A dsRNA; limited effects on bee survival
+28,velez_2016:028,velez_2016,,,,,reported,400,400,10.1002/ps.4037,Am vATPase-A self dsRNA also no effect — oral RNAi barrier in bees
+29,pan_2017:029,pan_2017,,,,,reported,19,19,10.3389/fpls.2017.00242,Dv vATPase-A; monarch survival/development NS
+30,pan_2017:030,pan_2017,,,,,reported,400,400,10.3389/fpls.2017.00242,Monarch self vATPase-A also inactive orally
+31,davis_2021:031,davis_2021,,,,,inferred,0,16,10.1371/journal.pone.0251884,Varroa-active dsRNA 2.1 mg/mL leaf; Abbott-corrected mortality NS vs water
+32,davis_2021:032,davis_2021,,,,,inferred,0,300,10.1371/journal.pone.0251884,Monarch-active positive-control dsRNA; mortality not consistently > control after Abbott
+33,lim_2019_daphnia:033,lim_2019_daphnia,,,,,reported,12,12,10.1111/1748-5967.12328,Acute toxicity DvSnf7; no lethality/abnormal behavior
+34,lim_2019_daphnia:034,lim_2019_daphnia,,,,,reported,0,0,10.1111/1748-5967.12328,GFP dsRNA control; no sequence match; no effect
+35,epa_ledprona_2023:035,epa_ledprona_2023,,,,,inferred,0,0,EPA-HQ-OPP-2021-0271,chronic oral >47.2 ug ai/bee; no discernible effect
+36,epa_ledprona_2023:036,epa_ledprona_2023,,,,,inferred,0,0,EPA-HQ-OPP-2021-0271,acute contact >24.3 ug ai/bee
+37,epa_ledprona_2023:037,epa_ledprona_2023,,,,,reported,15,15,EPA-HQ-OPP-2021-0271,earthworm; up to 3 perfect 21-mers; no treatment-related effects
+38,epa_ledprona_2023:038,epa_ledprona_2023,,,,,reported,15,15,EPA-HQ-OPP-2021-0271,ladybird; low match count; no effects
+39,epa_ledprona_2023:039,epa_ledprona_2023,,,,,inferred,0,12,EPA-HQ-OPP-2021-0271,green lacewing guideline; NOEC at highest tested
+40,epa_ledprona_2023:040,epa_ledprona_2023,,,,,inferred,0,12,EPA-HQ-OPP-2021-0271,daphnid guideline; NOEC
+41,epa_ledprona_2023:041,epa_ledprona_2023,,,,,inferred,0,12,EPA-HQ-OPP-2021-0271,predatory mite Ledprona a.i. NOEC
+42,epa_ledprona_2023:042,epa_ledprona_2023,,,,,inferred,0,12,EPA-HQ-OPP-2021-0271,parasitoid wasp Ledprona a.i. NOEC
+43,epa_ledprona_2023:043,epa_ledprona_2023,,,,,inferred,0,12,EPA-HQ-OPP-2021-0271,Collembola springtail Ledprona a.i. NOEC
+44,epa_ledprona_2023:044,epa_ledprona_2023,,,,,reported,460,460,EPA-HQ-OPP-2021-0271,Target CPB efficacy; ~417 theoretical 21-mers; Frontiers 2021 greenhouse/lab
+45,whyard_2009:045,whyard_2009,,,,,reported,21,21,10.1016/j.ibmb.2009.09.005,Classic genus-level RNAi specificity demo
+46,whyard_2009:046,whyard_2009,,,,,reported,18,18,10.1016/j.ibmb.2009.09.005,Classic genus-level RNAi specificity demo
+47,whyard_2009:047,whyard_2009,,,,,reported,17,17,10.1016/j.ibmb.2009.09.005,Classic genus-level RNAi specificity demo
+48,whyard_2009:048,whyard_2009,,,,,reported,16,16,10.1016/j.ibmb.2009.09.005,Classic genus-level RNAi specificity demo
+49,fire_1998:049,fire_1998,,,,,reported,700,700,10.1038/35888,Foundational RNAi; twitching phenotype coded as adverse developmental endpoint
+50,timmons_2001:050,timmons_2001,,,,,reported,500,500,10.1016/S0378-1119(01)00386-4,GFP reporter silencing without organismal adversity → significant=false
+51,rodrigues_2021:051,rodrigues_2021,,,,,reported,460,460,10.3389/fpls.2021.728652,1 mg/L dsPSMB5 → ~90% mortality; dose stored as 1.0 ng/µL
+52,haller_2025:052,haller_2025,,,,,inferred,0,15,10.1007/s12230-025-09979-5,ladybeetle; no Calantha response in pitfall/field
+53,haller_2025:053,haller_2025,,,,,inferred,0,14,10.1007/s12230-025-09979-5,Asian ladybeetle; no evidence of response
+54,haller_2025:054,haller_2025,,,,,inferred,0,12,10.1007/s12230-025-09979-5,lacewing; no response
+55,haller_2025:055,haller_2025,,,,,inferred,0,12,10.1007/s12230-025-09979-5,minute pirate bug; no response
+56,haller_2025:056,haller_2025,,,,,inferred,0,12,10.1007/s12230-025-09979-5,pollinator surrogate; no response signal
+57,baum_2007:057,baum_2007,,,,,reported,300,300,10.1038/nbt1359,Foundational plant-delivered WCR RNAi efficacy
+58,zhu_2011:058,zhu_2011,,,,,reported,300,300,10.1002/ps.2048,CPB oral RNAi; actin
+59,zhu_2011:059,zhu_2011,,,,,reported,250,250,10.1002/ps.2048,CPB oral RNAi; sec23
+60,zhu_2011:060,zhu_2011,,,,,reported,280,280,10.1002/ps.2048,CPB oral RNAi; vATPase_E
+61,epa_ledprona_earthworm_chronic:061,epa_ledprona_earthworm_chronic,,,,,reported,18,18,EPA-HQ-OPP-2021-0271,Chronic earthworm reproduction endpoint; NS despite few 21-mer hits
+62,epa_ledprona_ladybird_dev:062,epa_ledprona_ladybird_dev,,,,,reported,18,18,EPA-HQ-OPP-2021-0271,Ladybird development endpoint; NS
+63,bachman_2013_cpb_reciprocal:063,bachman_2013_cpb_reciprocal,,,,,reported,14,14,10.1007/s11248-013-9716-5,DvSnf7 vs CPB reciprocal; inactive (max contiguous 14)
+64,bachman_2013_cpb_reciprocal:064,bachman_2013_cpb_reciprocal,,,,,reported,14,14,10.1007/s11248-013-9716-5,LdSnf7 vs WCR reciprocal; inactive at 15 ug/mL
+65,epa_ledprona_human_bioinfo:065,epa_ledprona_human_bioinfo,,,,,reported,21,21,EPA-HQ-OPP-2021-0271,EPA noted 2 human transcriptome 21-mer homologues; no dietary exposure pathway → nonsig
+66,chen_2021:066,chen_2021,,,,,reported,12,12,10.1080/15476286.2020.1868680,chimeric 100bp; <15 bp contiguous — no efficient knockdown
+67,chen_2021:067,chen_2021,,,,,reported,14,14,10.1080/15476286.2020.1868680,chimeric 100bp; <15 bp contiguous — no efficient knockdown
+68,chen_2021:068,chen_2021,,,,,reported,15,15,10.1080/15476286.2020.1868680,chimeric 100bp; 15 bp marginal (~20% depletion); not called significant phenotype
+69,chen_2021:069,chen_2021,,,,,reported,16,16,10.1080/15476286.2020.1868680,chimeric 100bp; >=16 bp contiguous — significant knockdown (~72% CYP4Q7)
+70,chen_2021:070,chen_2021,,,,,reported,18,18,10.1080/15476286.2020.1868680,chimeric 100bp; 18 bp contiguous — efficient knockdown
+71,chen_2021:071,chen_2021,,,,,reported,20,20,10.1080/15476286.2020.1868680,chimeric 100bp; 20 bp contiguous — efficient knockdown (<21 industry line)
+72,chen_2021:072,chen_2021,,,,,reported,26,26,10.1080/15476286.2020.1868680,Off-target knockdown of CYP6BK13 (26 bp contiguous) by dsCYP6BQ6
+73,jafc_2023_ote:073,jafc_2023_ote,,,,,reported,16,16,10.1021/acs.jafc.3c07434,JAFC 2023: contiguous match >15 nt (and ~19 nt near-perfect with 1-2mm) can trigger OTE
+74,jafc_2023_ote:074,jafc_2023_ote,,,,,reported,14,14,10.1021/acs.jafc.3c07434,Below ~15 nt contiguous — off-target not triggered per JAFC 2023 threshold
