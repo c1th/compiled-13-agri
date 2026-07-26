@@ -1,49 +1,21 @@
-// KPI row — reads FIELD.summary directly. Never recomputes.
-
-function initKPI(data) {
-  const s = data.summary;
-  const m = data.meta;
-
-  document.getElementById('field-name').textContent = m.name;
-  document.getElementById('field-date').textContent = m.date;
-
-  const cards = [
-    { label: 'Total field', value: fmtNum(s.total_acres), unit: 'acres' },
-    { label: 'Acres treated', value: fmtNum(s.flagged_acres), unit: 'acres', sub: fmtNum(s.pct_flagged) + '% of field' },
-    { label: 'Pesticide reduction', value: fmtNum(s.pct_reduction) + '%', hero: true, sub: 'vs whole-field spray' },
-    { label: 'Saved this pass', value: '$' + fmtNum(s.dollars_saved) }
-  ];
-
-  const row = document.getElementById('kpi-row');
-  row.innerHTML = '';
-  for (const c of cards) {
-    const card = document.createElement('div');
-    card.className = 'kpi-card' + (c.hero ? ' hero' : '');
-    card.innerHTML =
-      '<div class="kpi-label">' + c.label + '</div>' +
-      '<div class="kpi-value">' + c.value +
-        (c.unit ? '<span class="kpi-unit">' + c.unit + '</span>' : '') +
-      '</div>' +
-      (c.sub ? '<div class="kpi-sub num">' + c.sub + '</div>' : '');
-    row.appendChild(card);
-  }
-}
-
-function fmtNum(n) {
-  return Number(n).toLocaleString('en-US');
-}
-
-// Treatment breakdown — groups zones by treatment_id. The do-not-spray
-// group renders LAST and visually distinct: it is the proof we diagnose
-// rather than just detect.
+// Recommended treatment distribution — groups zones by prescribed product.
+// This is the optimal plan, not a stock allocation: quantities are whatever
+// the agronomy calls for. The do-not-spray group renders LAST and visually
+// distinct: it is the proof we diagnose rather than just detect.
 
 function initBreakdown(data) {
   const body = document.getElementById('breakdown-body');
+  if (!body) return;
   body.innerHTML = '';
 
   const keys = Object.keys(data.treatments)
     .filter((k) => data.zones.some((z) => z.treatment_id === k))
     .sort((a, b) => (a === 'none') - (b === 'none')); // 'none' always last
+
+  if (!keys.length) {
+    body.innerHTML = '<span class="procure-empty">Run the analysis to see the recommended distribution.</span>';
+    return;
+  }
 
   for (const key of keys) {
     const t = data.treatments[key];
@@ -67,6 +39,7 @@ function initBreakdown(data) {
       '<div class="tb-stats">' +
         '<span><span class="num">' + acres.toFixed(1) + '</span> acres</span>' +
         '<span><span class="num">' + gallons.toFixed(1) + '</span> gal</span>' +
+        (noSpray ? '' : '<span><span class="num">' + (gallons / acres).toFixed(2) + '</span> gal/ac avg</span>') +
       '</div>' +
       (noSpray
         ? '<div class="tb-why">Stress explained by moisture-index anomaly / NDRE deficit &mdash; irrigation and fertility, not pests.</div>'

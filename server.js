@@ -11,6 +11,22 @@ app.get('/', (_req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Biological treatment catalog. The analysis layer picks the optimal product
+// per zone from this list — it is NOT an on-hand inventory and imposes no
+// quantity ceiling. Mirrored in data/catalog.js for the browser's offline mock.
+const BIOLOGICAL_CATALOG = [
+  { id: 'bt_kurstaki', name: 'Bacillus thuringiensis kurstaki', rate_gal_per_acre: 1.0, color: '#E8A33D',
+    targets: 'lepidopteran larvae — armyworm, corn borer, earworm' },
+  { id: 'beauveria', name: 'Beauveria bassiana', rate_gal_per_acre: 1.5, color: '#7B4B94',
+    targets: 'aphids, thrips, whitefly, beetle adults' },
+  { id: 'metarhizium', name: 'Metarhizium anisopliae', rate_gal_per_acre: 1.25, color: '#5AD4C8',
+    targets: 'soil-dwelling larvae — rootworm, grubs, weevils' },
+  { id: 'spinosad', name: 'Spinosad', rate_gal_per_acre: 0.75, color: '#D07EA8',
+    targets: 'thrips, leafminers, spotted-wing drosophila' }
+];
+
+const TREATMENT_IDS = BIOLOGICAL_CATALOG.map((p) => p.id).concat('none');
+
 // Structured-output schema for the analysis plan. Zones use the FROZEN zone
 // contract; x,y are 0..1 relative to the region, origin top-left.
 const PLAN_SCHEMA = {
@@ -48,7 +64,7 @@ const PLAN_SCHEMA = {
           ndvi_anomaly: { type: 'number' },
           ndmi_anomaly: { type: 'number' },
           diagnosis: { type: 'string', enum: ['biotic_stress', 'water_stress', 'nitrogen_deficiency'] },
-          treatment_id: { type: 'string' },
+          treatment_id: { type: 'string', enum: TREATMENT_IDS },
           volume_gal: { type: 'number' },
           priority: { type: 'integer' }
         }
@@ -57,31 +73,38 @@ const PLAN_SCHEMA = {
   }
 };
 
-// Analysis layer: region bounds + pesticide inventory -> FIELD-shaped plan.
-// Claude generates the zone diagnosis; any failure returns 502 and the
-// browser falls back to a local mock so the demo never dead-ends.
+// Analysis layer: region bounds -> FIELD-shaped plan. Claude diagnoses each
+// zone and recommends the OPTIMAL biological for it, unconstrained by stock —
+// whatever the plan calls for is what gets ordered. Any failure returns 502
+// and the browser falls back to a local mock so the demo never dead-ends.
 app.post('/api/analyze', async (req, res) => {
-  const { bounds, total_acres, inventory } = req.body || {};
-  if (!Array.isArray(bounds) || bounds.length !== 4 || !Array.isArray(inventory) || inventory.length === 0) {
-    return res.status(400).json({ error: 'bounds [W,S,E,N] and non-empty inventory required' });
+  const { bounds, total_acres } = req.body || {};
+  if (!Array.isArray(bounds) || bounds.length !== 4) {
+    return res.status(400).json({ error: 'bounds [W,S,E,N] required' });
   }
 
-  const inventoryDesc = inventory
-    .map((p) => `- id "${p.id}": ${p.name}, ${p.rate} gal/acre, ${p.gallons} gal on hand`)
+  const catalogDesc = BIOLOGICAL_CATALOG
+    .map((p) => `- id "${p.id}": ${p.name}, label rate ${p.rate_gal_per_acre} gal/acre — effective against ${p.targets}`)
     .join('\n');
 
   const prompt = `You are the diagnosis layer of FieldLoop, a precision-agriculture system.
 Satellite imagery flagged crop-stress zones in a field. Your job: produce a realistic
 treatment plan that separates pest pressure (treatable) from irrigation/nitrogen issues
-(must NOT be sprayed).
+(must NOT be sprayed), and prescribe the single best-matched biological for each pest zone.
 
 Region bounds [W,S,E,N]: ${JSON.stringify(bounds)} (~${Math.round(total_acres || 160)} acres of row crops, Iowa, late July).
-Pesticide inventory (biologicals) available:
-${inventoryDesc}
+
+Biological catalog to prescribe from (availability is unlimited — recommend the
+agronomically optimal product and quantity, never a compromise based on stock):
+${catalogDesc}
 
 Generate 11-14 stress zones:
-- 70-80% diagnosed "biotic_stress": assign a treatment_id from the inventory ids above,
-  volume_gal = area_acres x that product's rate. NDVI anomaly negative, NDMI near normal.
+- 70-80% diagnosed "biotic_stress": infer a plausible pest for the zone's signature and
+  set treatment_id to the catalog id that best controls it. Use at least two different
+  products across the field where the pest pressure justifies it.
+  volume_gal = area_acres x that product's label rate, scaled up to 1.25x on zones with
+  severity above 0.8 (heavier pressure warrants a heavier rate). NDVI anomaly negative,
+  NDMI near normal.
 - 20-30% diagnosed "water_stress" (NDMI strongly negative) or "nitrogen_deficiency"
   (NDMI normal, NDRE-driven): treatment_id "none", volume_gal 0.
 - x,y in 0..1 relative to the region, ORIGIN TOP-LEFT (x: west->east, y: north->south),
@@ -90,8 +113,7 @@ Generate 11-14 stress zones:
 - Total treated acres should be roughly 8-10% of the region.
 summary: total_acres = region size; flagged_acres = treated (biotic) acres only;
 pct_flagged = flagged/total x100 (1dp); pct_reduction = 100 - pct_flagged (integer);
-dollars_saved = (total_acres - flagged_acres) x 34, rounded.
-Do not exceed on-hand gallons for any product.`;
+dollars_saved = (total_acres - flagged_acres) x 34, rounded.`;
 
   try {
     const anthropic = new Anthropic();
@@ -111,9 +133,12 @@ Do not exceed on-hand gallons for any product.`;
     if (!textBlock) throw new Error('no text block in response');
     const plan = JSON.parse(textBlock.text);
 
+    // Only include products the plan actually prescribes.
+    const used = new Set(plan.zones.map((z) => z.treatment_id));
     const treatments = {};
-    for (const p of inventory) {
-      treatments[p.id] = { name: p.name, rate_gal_per_acre: p.rate, color: p.color };
+    for (const p of BIOLOGICAL_CATALOG) {
+      if (!used.has(p.id)) continue;
+      treatments[p.id] = { name: p.name, rate_gal_per_acre: p.rate_gal_per_acre, color: p.color };
     }
     treatments.none = { name: 'No treatment — irrigation issue', rate_gal_per_acre: 0, color: '#5A9BD4' };
 

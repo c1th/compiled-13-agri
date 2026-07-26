@@ -1,10 +1,12 @@
 # FieldLoop
 
 Precision crop-stress dashboard. A region is selected on a real satellite map
-(Google Earth Engine NDVI overlay), the pesticide inventory is declared, and a
-Claude-powered analysis layer produces a treatment plan that separates pest
-pressure from irrigation/nitrogen issues — only pest zones get treated (~9% of
-the field instead of 100%). The plan then drives the drone operations page.
+(Google Earth Engine NDVI overlay) and a Claude-powered analysis layer produces
+a treatment plan that separates pest pressure from irrigation/nitrogen issues —
+only pest zones get treated (~9% of the field instead of 100%). It prescribes
+the agronomically optimal biological per zone from a catalog, with no quantity
+ceiling. Treatment renders as a weighted density map rather than markers. The
+plan then drives the drone operations page.
 
 ## Run
 
@@ -27,9 +29,9 @@ demo run.
 
 ## Pages
 
-- `index.html` — dashboard: KPI row, Earth Engine map with two-click region
-  drawing, pesticide inventory, "Run analysis" (Claude → treatment plan),
-  treatment breakdown with the do-not-spray group, procurement.
+- `index.html` — dashboard: Earth Engine map with two-click region drawing and
+  a weighted treatment-intensity layer, "Run analysis" (Claude → treatment
+  plan), recommended distribution with the do-not-spray group, procurement.
 - `drones.html` — drone operations: configure each drone individually (origin
   via map click, pesticide, tank gallons), "Recommend assignments" shows which
   zones each drone covers. No flight-path drawing — that's the swarm sim's job.

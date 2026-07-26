@@ -8,7 +8,7 @@ try {
   if (savedPlan) DATA = JSON.parse(savedPlan);
 } catch (_e) { /* fall through to FIELD */ }
 
-// Each entry re-runs on "R" (reset for a second demo pass) and on setData().
+// Each entry re-runs on "R" (reset for a second demo pass).
 const PANEL_INITS = [];
 
 function registerPanel(name, fn) {
@@ -24,17 +24,49 @@ function safeInit(name, fn) {
   }
 }
 
-// Swap in a new analysis plan and re-render everything data-driven.
-function setData(plan) {
-  DATA = plan;
+// Re-render the data-driven panels without tearing down the live map (which
+// would throw away the user's drawn region and Earth Engine session).
+function refreshDataPanels() {
   for (const p of PANEL_INITS) {
     if (p.name === 'geemap') {
-      // keep the live map; just refresh its zones + legend
-      try { renderZonesOnMap(DATA); renderMapLegend(DATA); } catch (err) { console.error(err); }
+      try { renderZonesOnMap(DATA); renderMapLegend(DATA); } catch (err) {
+        console.error('[FieldLoop] map refresh failed:', err);
+      }
     } else {
       safeInit(p.name, p.fn);
     }
   }
+}
+
+// Swap in a new analysis plan.
+function setData(plan) {
+  DATA = plan;
+  refreshDataPanels();
+}
+
+// Drop the current plan but keep the drawn region — used when the region
+// changes, so stale zones and acreage don't linger over new ground.
+function clearPlan() {
+  sessionStorage.removeItem('fieldloop_plan');
+  DATA = emptyPlan(typeof getRegionBounds === 'function' ? getRegionBounds() : DATA.meta.bounds);
+  refreshDataPanels();
+}
+
+function emptyPlan(bounds) {
+  return {
+    source: 'empty',
+    meta: {
+      name: 'Selected region',
+      bounds,
+      image: 'field.png',
+      image_size: [1200, 800],
+      date: new Date().toISOString().slice(0, 10)
+    },
+    summary: { total_acres: 0, flagged_acres: 0, pct_flagged: 0, pct_reduction: 0, dollars_saved: 0 },
+    treatments: { none: { name: 'No treatment — irrigation issue', rate_gal_per_acre: 0, color: '#5A9BD4' } },
+    zones: [],
+    fleet: []
+  };
 }
 
 function resetAllPanels() {
@@ -49,9 +81,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'r' || e.key === 'R') resetAllPanels();
 });
 
-registerPanel('kpi', initKPI);
 registerPanel('geemap', initGeeMap);
 registerPanel('breakdown', initBreakdown);
-registerPanel('inventory', initInventory);
 registerPanel('analyze', initAnalyze);
 registerPanel('procure', initProcure);

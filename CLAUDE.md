@@ -19,10 +19,14 @@ completeness. Satellite imagery flags crop-stress zones; a diagnosis step
 separates pest problems from irrigation/nitrogen problems; only pest zones get
 treated by a drone swarm. Headline: **treat ~9% of the field instead of 100%**.
 
-Two things must stay visually dominant:
-1. The reduction stat (91% less pesticide) — hero styling, accent `#4ADE80`.
-2. The **DO NOT SPRAY** zones — dashed outline, no fill, distinct group. These
-   prove the system *diagnoses* rather than just detects.
+What must stay visually dominant: the **DO NOT SPRAY** zones — dashed outline,
+no fill, own group rendered last in the breakdown. They prove the system
+*diagnoses* rather than just detects.
+
+The reduction stat and dollars-saved card were **removed from the UI** at the
+user's request. `summary.pct_reduction` / `dollars_saved` still exist in the
+data contract — do not re-add cards for them. Acreage now lives on one line
+under the map: region bounds · total field · acres treated.
 
 ## Hard constraints — do not deviate
 
@@ -75,17 +79,43 @@ FIELD = {
 
 ## Layout
 
-- `index.html` — dashboard: KPI row, Earth Engine map (region drawing),
-  pesticide inventory, run-analysis bar, treatment breakdown, procurement.
+- `index.html` — dashboard: Earth Engine map with region drawing and the
+  weighted treatment layer, recommended distribution, run-analysis bar,
+  procurement. **No KPI row and no inventory panel** — both removed on request.
 - `drones.html` — drone operations: static zone map, per-drone config
   (origin via map click, pesticide, tank gallons), recommended assignments,
   swarm mount.
-- `js/` — `app.js` (dashboard bootstrap), `kpi.js` (KPI + treatment breakdown),
-  `geemap.js` (Leaflet + Earth Engine), `field-map.js` (static map, also the
-  offline fallback), `inventory.js`, `analyze.js`, `procure.js`, `drones.js`,
-  `swarm-mount.js` (integration seam), `config.js` (public client IDs).
-- `data/` — `zones.js` (FIELD), `stub-zones.js` (STUB fallback).
+- `js/` — `app.js` (dashboard bootstrap), `breakdown.js` (recommended
+  distribution), `geemap.js` (Leaflet + Earth Engine), `field-map.js` (static
+  map, also the offline fallback), `weighted-map.js` (density renderer),
+  `analyze.js`, `procure.js`, `drones.js`, `swarm-mount.js` (integration seam),
+  `config.js` (public client IDs).
+- `data/` — `zones.js` (FIELD), `stub-zones.js` (STUB fallback),
+  `catalog.js` (biological catalog, mirrors the one in `server.js`).
 - `vendor/` — Leaflet + Earth Engine client, committed for offline use.
+
+## Treatment rendering — weighted, not circles
+
+Treatment is drawn as a **continuous weighted density field**, never as
+discrete circle markers. `js/weighted-map.js` accumulates a Gaussian per
+treated zone (σ from area, peak from severity), tinted with the product colour
+so overlapping products blend by weight, and returns a canvas. `geemap.js`
+places it as an `L.imageOverlay` over the region bounds; `field-map.js` places
+it as an `<img>` layer over the static imagery.
+
+Treated zones still carry an *invisible* marker purely as a hover target for
+the tooltip — the density layer is the only visual. Do-not-spray zones keep
+their dashed outline on top. If you touch this, do not reintroduce filled
+circles for treatment.
+
+## Treatment selection — optimal, not stock-constrained
+
+There is **no inventory input**. The analysis layer prescribes the
+agronomically optimal biological per zone from a fixed catalog
+(`BIOLOGICAL_CATALOG` in `server.js`, mirrored as `TREATMENT_CATALOG` in
+`data/catalog.js`), with no quantity ceiling — availability is assumed
+unlimited because more can always be bought. Rates step up 1.25x on zones with
+severity > 0.8. Keep the two catalog copies in sync when editing.
 
 ## Credentials
 
@@ -100,11 +130,11 @@ Both optional; the app degrades gracefully without either.
 
 ## Analysis layer
 
-`POST /api/analyze` takes `{ bounds, total_acres, inventory }` and calls
-`claude-opus-5` via the official SDK with structured outputs (strict JSON
-schema), refusal handling, and server-side fallback. Returns a FIELD-shaped
-plan. Model IDs and API shapes change — consult the `claude-api` skill before
-editing that call rather than writing from memory.
+`POST /api/analyze` takes `{ bounds, total_acres }` and calls `claude-opus-5`
+via the official SDK with structured outputs (strict JSON schema), refusal
+handling, and server-side fallback. Returns a FIELD-shaped plan. Model IDs and
+API shapes change — consult the `claude-api` skill before editing that call
+rather than writing from memory.
 
 ## Teammate integration — swarm simulator
 
@@ -130,11 +160,14 @@ in a real run and report back if the canvas doesn't render or console errors.
 
 ## Log
 
-- Built dashboard (KPI, map, breakdown, procurement) and drone ops page.
-- Removed an earlier AI-agronomist panel and a Channel3 procurement proxy at
-  the user's request — do not reintroduce either.
+- Built dashboard (map, breakdown, procurement) and drone ops page.
+- Removed at the user's request — **do not reintroduce**: AI-agronomist panel,
+  Channel3 procurement proxy, KPI row (pesticide-reduction + dollars-saved
+  cards), pesticide-inventory panel.
 - Pivoted the map from a static image to Leaflet + Earth Engine with region
   drawing, and added the Claude analysis layer.
+- Replaced circle markers with the weighted treatment density map, and dropped
+  the inventory input in favour of an unconstrained optimal prescription.
 - Drone page assignments are greedy nearest-first within tank capacity, shown
   as colored rings + manifest cards. **No flight paths** — the swarm sim owns
   those; do not draw them here.

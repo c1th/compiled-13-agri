@@ -18,33 +18,25 @@
   </header>
 
   <main class="layout">
-    <section id="kpi-row" class="kpi-row" aria-label="Key metrics"></section>
-    <p class="provenance">
-      Reduction validated against Iowa State (76% avg field-area savings) and
-      Univ. of Arkansas (43&ndash;59%) precision-spray trials.
-    </p>
-
     <section class="panel map-panel">
-      <div class="panel-title">Field map &mdash; Earth Engine</div>
+      <div class="panel-title">Field map &mdash; treatment intensity</div>
       <div class="map-toolbar">
         <button id="draw-region" class="btn">Draw region</button>
         <button id="gee-connect" class="btn">Connect Earth Engine</button>
         <span id="map-status" class="map-status"></span>
       </div>
       <div id="gee-map" class="gee-map"></div>
-      <div class="map-footer">
-        <div class="map-legend" id="map-legend"></div>
-        <div class="region-readout num" id="region-readout"></div>
-      </div>
-    </section>
-
-    <section class="panel inventory-panel">
-      <div class="panel-title">Pesticide inventory</div>
-      <div id="inventory-body"></div>
+      <div class="map-legend" id="map-legend"></div>
+      <div class="region-readout num" id="region-readout"></div>
+      <p class="provenance">
+        Treating only diagnosed pest zones is validated against Iowa State
+        (76% avg field-area savings) and Univ. of Arkansas (43&ndash;59%)
+        precision-spray trials.
+      </p>
     </section>
 
     <section class="panel breakdown-panel">
-      <div class="panel-title">Treatment breakdown</div>
+      <div class="panel-title">Recommended distribution</div>
       <div id="breakdown-body"></div>
     </section>
 
@@ -67,10 +59,11 @@
   <script src="js/config.js"></script>
   <script src="data/stub-zones.js"></script>
   <script src="data/zones.js"></script>
-  <script src="js/kpi.js"></script>
+  <script src="data/catalog.js"></script>
+  <script src="js/weighted-map.js"></script>
+  <script src="js/breakdown.js"></script>
   <script src="js/field-map.js"></script>
   <script src="js/geemap.js"></script>
-  <script src="js/inventory.js"></script>
   <script src="js/analyze.js"></script>
   <script src="js/procure.js"></script>
   <script src="js/app.js"></script>

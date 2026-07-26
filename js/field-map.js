@@ -1,6 +1,8 @@
-// Static field map — image + absolutely-positioned zone markers.
-// Positions are percentages of the container, so markers track window resize.
-// y originates at the TOP of the image (contract) — never flipped.
+// Static field map — imagery + a weighted treatment density layer (see
+// js/weighted-map.js) rather than discrete circles. Do-not-spray zones keep a
+// dashed outline; treated zones get an invisible hover target for the tooltip.
+// Everything is positioned in percentages so it tracks window resize.
+// y originates at the TOP of the image (frozen contract) — never flipped.
 // Used by the drones page and as the dashboard's offline map fallback.
 
 const DIAGNOSIS_LABELS = {
@@ -20,6 +22,17 @@ function initFieldMap(data, wrapEl) {
   img.alt = data.meta.name + ' satellite image';
   wrap.appendChild(img);
 
+  // Weighted treatment layer, stretched over the imagery.
+  try {
+    const heat = document.createElement('img');
+    heat.className = 'map-heat';
+    heat.src = treatmentCanvasUrl(data);
+    heat.alt = '';
+    wrap.appendChild(heat);
+  } catch (err) {
+    console.warn('[FieldLoop] treatment layer failed:', err);
+  }
+
   const tooltip = document.createElement('div');
   tooltip.className = 'map-tooltip';
   wrap.appendChild(tooltip);
@@ -28,19 +41,16 @@ function initFieldMap(data, wrapEl) {
     const t = data.treatments[zone.treatment_id];
     if (!t) continue;
     const noSpray = zone.treatment_id === 'none';
-    const d = Math.round(18 + zone.area_acres * 10); // px diameter, scaled by area
+    const d = Math.round(20 + zone.area_acres * 10); // px, scaled by area
 
     const marker = document.createElement('div');
-    marker.className = 'zone-marker' + (noSpray ? ' nospray' : '');
+    marker.className = 'zone-marker' + (noSpray ? ' nospray' : ' treated');
     marker.dataset.zoneId = zone.id;
     marker.style.left = (zone.x * 100) + '%';
     marker.style.top = (zone.y * 100) + '%';
     marker.style.width = d + 'px';
     marker.style.height = d + 'px';
-    marker.style.borderColor = t.color;
-    if (!noSpray) {
-      marker.style.background = hexToRgba(t.color, 0.25 + zone.severity * 0.55);
-    }
+    if (noSpray) marker.style.borderColor = t.color;
 
     if (noSpray) {
       const label = document.createElement('div');
@@ -58,6 +68,7 @@ function initFieldMap(data, wrapEl) {
 
 function showTooltip(tooltip, zone, treatment) {
   const noSpray = zone.treatment_id === 'none';
+  const rate = zone.area_acres ? (zone.volume_gal / zone.area_acres) : 0;
   tooltip.innerHTML =
     '<div class="tip-head"><span class="num">' + zone.id + '</span> &middot; ' +
       (DIAGNOSIS_LABELS[zone.diagnosis] || zone.diagnosis) + '</div>' +
@@ -66,6 +77,8 @@ function showTooltip(tooltip, zone, treatment) {
     '<div class="tip-row"><span>Severity</span><span class="num">' + Math.round(zone.severity * 100) + '%</span></div>' +
     '<div class="tip-row"><span>NDVI anomaly</span><span class="num">' + fmtAnom(zone.ndvi_anomaly) + '</span></div>' +
     '<div class="tip-row"><span>NDMI anomaly</span><span class="num">' + fmtAnom(zone.ndmi_anomaly) + '</span></div>' +
+    (noSpray ? '' :
+      '<div class="tip-row"><span>Rate</span><span class="num">' + rate.toFixed(2) + ' gal/ac</span></div>') +
     '<div class="tip-row"><span>Treatment</span><span>' + treatment.name + '</span></div>';
 
   // Flip near the right/bottom edges so the tooltip stays over the image.

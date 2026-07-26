@@ -11,10 +11,15 @@ let drawCorner = null;     // first click while drawing
 let drawing = false;
 let zoneLayers = [];
 let ndviLayer = null;
+let treatmentOverlay = null;
 let eeReady = false;
+let mapData = null;
 
 function initGeeMap(data) {
   regionBounds = data.meta.bounds.slice();
+  mapData = data;
+  document.getElementById('field-name').textContent = data.meta.name;
+  document.getElementById('field-date').textContent = data.meta.date;
   const container = document.getElementById('gee-map');
 
   try {
@@ -84,6 +89,9 @@ function onMapClick(evt) {
   drawCorner = null;
   toggleDraw();
   drawRegionRect();
+  // The old plan describes a different region — clear it so stale acreage and
+  // zones don't linger over the new one.
+  if (typeof clearPlan === 'function') clearPlan();
   updateRegionReadout();
   if (eeReady) addNdviOverlay();
   setMapStatus('Region set — run the analysis to generate a plan.');
@@ -98,34 +106,58 @@ function regionAcres() {
   return Math.max(1, (latM * lonM) / 4046.86);
 }
 
+// Region bounds plus the two acreage figures, on one line.
 function updateRegionReadout() {
   const el = document.getElementById('region-readout');
   if (!el) return;
   const [w, s, e, n] = regionBounds;
-  el.textContent = `Region [${w.toFixed(4)}, ${s.toFixed(4)}, ${e.toFixed(4)}, ${n.toFixed(4)}] · ~${Math.round(regionAcres()).toLocaleString('en-US')} acres`;
+  const parts = [
+    `Region [${w.toFixed(4)}, ${s.toFixed(4)}, ${e.toFixed(4)}, ${n.toFixed(4)}]`,
+    `Total field ${Math.round(regionAcres()).toLocaleString('en-US')} ac`
+  ];
+  if (mapData && mapData.summary && mapData.summary.flagged_acres) {
+    const s0 = mapData.summary;
+    parts.push(`Acres treated ${s0.flagged_acres.toLocaleString('en-US')} ac (${s0.pct_flagged}%)`);
+  }
+  el.textContent = parts.join('  ·  ');
 }
 
-// Zones as circle markers, colored by treatment; do-not-spray dashed, no fill.
+// Treatment renders as a weighted density field (see js/weighted-map.js), not
+// as discrete circles. Do-not-spray zones keep a dashed outline so the
+// diagnosis result stays unmistakable; treated zones get an invisible marker
+// purely as a hover target for the tooltip.
 function renderZonesOnMap(data) {
   if (!geeMap) return;
+  mapData = data;
   for (const layer of zoneLayers) layer.remove();
   zoneLayers = [];
+  if (treatmentOverlay) { treatmentOverlay.remove(); treatmentOverlay = null; }
+
+  const [w, s, e, n] = regionBounds;
+  try {
+    treatmentOverlay = L.imageOverlay(treatmentCanvasUrl(data), [[s, w], [n, e]], {
+      opacity: 0.88,
+      interactive: false,
+      className: 'treatment-overlay'
+    }).addTo(geeMap);
+  } catch (err) {
+    console.warn('[FieldLoop] treatment overlay failed:', err);
+  }
+
   for (const zone of data.zones) {
     const t = data.treatments[zone.treatment_id];
     if (!t) continue;
     const noSpray = zone.treatment_id === 'none';
-    const marker = L.circleMarker([zone.lat, zone.lon], {
-      radius: 7 + zone.area_acres * 4,
-      color: t.color,
-      weight: 2,
-      dashArray: noSpray ? '5 4' : null,
-      fill: !noSpray,
-      fillColor: t.color,
-      fillOpacity: noSpray ? 0 : 0.2 + zone.severity * 0.5
-    }).addTo(geeMap);
+    const marker = L.circleMarker([zone.lat, zone.lon], noSpray
+      ? { radius: 9 + zone.area_acres * 3, color: t.color, weight: 2, dashArray: '5 4', fill: false }
+      // invisible hit target — the heatmap is the visual
+      : { radius: 8 + zone.area_acres * 3, stroke: false, fill: true, fillOpacity: 0.01 }
+    ).addTo(geeMap);
     marker.bindTooltip(zoneTooltipHtml(zone, t), { className: 'map-tooltip-leaflet', sticky: true });
     zoneLayers.push(marker);
   }
+
+  updateRegionReadout();
 }
 
 function zoneTooltipHtml(zone, treatment) {
@@ -144,12 +176,24 @@ function renderMapLegend(data) {
   legend.innerHTML = '';
   for (const key of Object.keys(data.treatments)) {
     const t = data.treatments[key];
+    if (key !== 'none' && !data.zones.some((z) => z.treatment_id === key)) continue;
     const item = document.createElement('span');
     item.className = 'legend-item';
     const swatchClass = key === 'none' ? 'legend-swatch nospray' : 'legend-swatch';
     item.innerHTML = '<span class="' + swatchClass + '" style="' +
       (key === 'none' ? 'border-color:' + t.color : 'background:' + t.color) + '"></span>' + t.name;
     legend.appendChild(item);
+  }
+
+  // Intensity ramp — the weighted map's density axis.
+  const peak = peakVolumePerAcre(data);
+  if (peak > 0) {
+    const ramp = document.createElement('span');
+    ramp.className = 'legend-item legend-ramp';
+    ramp.innerHTML = '<span class="ramp-label">Application rate</span>' +
+      '<span class="ramp-bar"></span>' +
+      '<span class="ramp-label num">0 &ndash; ' + peak.toFixed(2) + ' gal/ac</span>';
+    legend.appendChild(ramp);
   }
 }
 
