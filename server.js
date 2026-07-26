@@ -1,10 +1,24 @@
 require('dotenv').config();
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const Anthropic = require('@anthropic-ai/sdk');
 
 const app = express();
 app.use(express.json());
+
+// js/config.js holds local Earth Engine credentials and is gitignored, so a
+// fresh clone won't have it. Serve a blank config instead of 404ing — a clean
+// load must have no console errors. Registered before express.static so this
+// wins when the file is absent.
+app.get('/js/config.js', (_req, res) => {
+  const local = path.join(__dirname, 'js', 'config.js');
+  if (fs.existsSync(local)) return res.sendFile(local);
+  res.type('application/javascript')
+    .send('// No js/config.js — copy js/config.example.js to enable Earth Engine.\n' +
+          'window.FIELDLOOP_CONFIG = { EE_CLIENT_ID: "", EE_PROJECT: "" };\n');
+});
+
 app.use(express.static(__dirname));
 
 app.get('/', (_req, res) => {

@@ -2,3 +2,6 @@ node_modules/
 .env
 .DS_Store
 .gstack/
+
+# Local Earth Engine credentials — never commit (see js/config.example.js)
+js/config.js
