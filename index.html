@@ -80,6 +80,33 @@
       <div class="trace-log" id="trace-log"></div>
     </section>
 
+    <section class="panel impact-panel">
+      <div class="panel-title">Field impact &mdash; this survey</div>
+      <div id="impact-body"></div>
+    </section>
+
+    <section class="panel fleet-panel">
+      <div class="panel-title">Drone fleet</div>
+      <p class="band-note">Each drone carries one product. Set where it launches, how much it holds and how far it can fly &mdash; routing respects all three.</p>
+      <div id="fleet-body"></div>
+      <div class="drone-actions">
+        <button id="add-drone" class="btn">+ Add drone</button>
+        <button id="randomize-fleet" class="btn">Randomise for demo</button>
+      </div>
+    </section>
+
+    <section class="panel analyze-panel">
+      <div class="analyze-bar">
+        <button id="plan-routes" class="btn btn-primary">Calculate drone routes</button>
+        <span id="route-status" class="analyze-status"></span>
+      </div>
+    </section>
+
+    <section class="panel routes-panel">
+      <div class="panel-title">Recommended flight plan</div>
+      <div id="routes-body"></div>
+    </section>
+
     <section class="panel procure-panel">
       <div class="panel-title">Procurement</div>
       <div id="procure-body"></div>
@@ -97,8 +124,11 @@
   <script src="js/breakdown.js"></script>
   <script src="js/field-map.js"></script>
   <script src="js/map-panel.js"></script>
+  <script src="js/swarm.js"></script>
   <script src="js/analyze.js"></script>
+  <script src="js/fleet.js"></script>
   <script src="js/shed.js"></script>
+  <script src="js/impact.js"></script>
   <script src="js/procure.js"></script>
   <script src="js/app.js"></script>
 </body>

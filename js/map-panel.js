@@ -142,6 +142,14 @@ function toggleDraw() {
 }
 
 function onMapClick(evt) {
+  // Origin picking takes precedence over region drawing.
+  if (originPick) {
+    const cb = originPick;
+    originPick = null;
+    if (lmap) lmap.getContainer().style.cursor = '';
+    cb(evt.latlng.lat, evt.latlng.lng);
+    return;
+  }
   if (!drawing) return;
   if (!drawCorner) {
     drawCorner = evt.latlng;
@@ -173,6 +181,80 @@ function onMapClick(evt) {
 }
 
 let regionsUserDrawn = false;
+let originPick = null;
+let routeLayers = [];
+
+// ---------- Drone origin picking + route overlay ----------
+
+// Arm the map so the next click reports a lat/lon back to the caller.
+function armOriginPick(callback) {
+  originPick = callback;
+  if (lmap) lmap.getContainer().style.cursor = 'crosshair';
+  setMapStatus('Click the map to set the launch point.');
+}
+
+function cancelOriginPick() {
+  originPick = null;
+  if (lmap) lmap.getContainer().style.cursor = '';
+}
+
+// Convert a normalised 0..1 field position (origin top-left) to lat/lon.
+function fieldToLatLng(x, y) {
+  const [w, s, e, n] = unionBounds();
+  return [n - y * (n - s), w + x * (e - w)];
+}
+
+// Convert a map lat/lon to normalised 0..1 field position.
+function latLngToField(lat, lon) {
+  const [w, s, e, n] = unionBounds();
+  return {
+    x: e === w ? 0.5 : Math.min(1, Math.max(0, (lon - w) / (e - w))),
+    y: n === s ? 0.5 : Math.min(1, Math.max(0, (n - lat) / (n - s)))
+  };
+}
+
+function clearDroneRoutes() {
+  for (const l of routeLayers) l.remove();
+  routeLayers = [];
+}
+
+// Draw each drone's launch point and the ordered path it flies.
+function drawDroneRoutes(result) {
+  if (!lmap || !result) return;
+  clearDroneRoutes();
+  const palette = (typeof SWARM_COLORS !== 'undefined' && SWARM_COLORS.length)
+    ? SWARM_COLORS
+    : ['#5AD4C8', '#EC6B64', '#D0A5E8', '#8FBF6F', '#F2D857', '#7FA8F5'];
+
+  result.drones.forEach((d, i) => {
+    const color = palette[i % palette.length];
+    const home = fieldToLatLng(d.home.x, d.home.y);
+
+    const marker = L.circleMarker(home, {
+      radius: 7, color: '#0F1419', weight: 2,
+      fill: true, fillColor: color, fillOpacity: 1
+    }).addTo(lmap);
+    marker.bindTooltip(d.id + ' launch · ' + d.carries, { className: 'map-tooltip-leaflet' });
+    routeLayers.push(marker);
+
+    if (!d.route.length) return;
+    const path = [home].concat(d.route.map((stop) => [stop.lat, stop.lon]));
+    routeLayers.push(L.polyline(path, {
+      color, weight: 2.5, opacity: 0.9, dashArray: '6 5', interactive: false
+    }).addTo(lmap));
+
+    d.route.forEach((stop, idx) => {
+      const stopMarker = L.circleMarker([stop.lat, stop.lon], {
+        radius: 5, color, weight: 2, fill: true, fillColor: '#0F1419', fillOpacity: 0.95
+      }).addTo(lmap);
+      stopMarker.bindTooltip(
+        d.id + ' · stop ' + (idx + 1) + ' of ' + d.route.length + '<br>' +
+        stop.zone_id + ' · ' + stop.volume_gal.toFixed(2) + ' gal',
+        { className: 'map-tooltip-leaflet' });
+      routeLayers.push(stopMarker);
+    });
+  });
+}
 
 // Every drawn region, plus whatever the land-cover probe found, for the
 // analysis layer.

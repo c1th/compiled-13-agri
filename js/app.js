@@ -75,6 +75,8 @@ function resetAllPanels() {
   // Drop drawn regions and shed stock too, so "R" really is a clean second run.
   if (typeof resetRegions === 'function') resetRegions();
   if (typeof resetShed === 'function') resetShed();
+  if (typeof resetFleet === 'function') resetFleet();
+  if (typeof clearDroneRoutes === 'function') clearDroneRoutes();
   for (const p of PANEL_INITS) safeInit(p.name, p.fn);
 }
 
@@ -88,4 +90,6 @@ registerPanel('map', initMapPanel);
 registerPanel('breakdown', initBreakdown);
 registerPanel('shed', initShed);
 registerPanel('analyze', initAnalyze);
+registerPanel('impact', initImpact);
+registerPanel('fleet', initFleet);
 registerPanel('procure', initProcure);
