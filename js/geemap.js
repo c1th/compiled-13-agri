@@ -35,9 +35,11 @@ function initGeeMap(data) {
     drawRegionRect();
     renderZonesOnMap(data);
     geeMap.on('click', onMapClick);
+    // Band layers cover the visible scene, so refetch after the view settles.
+    geeMap.on('moveend', () => { if (eeReady) addBandLayer(); });
     setMapStatus(eeReady
-      ? 'Earth Engine connected — NDVI overlay active'
-      : 'Satellite base map. Connect Earth Engine for the live NDVI overlay.');
+      ? 'Earth Engine · ' + currentBand().label
+      : 'Satellite base map. Connect Earth Engine to view spectral bands.');
   } catch (err) {
     console.warn('[FieldLoop] map fallback to static image:', err.message);
     renderStaticFallback(container, data);
@@ -45,6 +47,8 @@ function initGeeMap(data) {
   }
 
   renderMapLegend(data);
+  populateBandSelect();
+  renderBandScale();
   updateRegionReadout();
 
   const drawBtn = document.getElementById('draw-region');
@@ -93,7 +97,6 @@ function onMapClick(evt) {
   // zones don't linger over the new one.
   if (typeof clearPlan === 'function') clearPlan();
   updateRegionReadout();
-  if (eeReady) addNdviOverlay();
   setMapStatus('Region set — run the analysis to generate a plan.');
 }
 
@@ -202,6 +205,146 @@ function setMapStatus(text) {
   if (el) el.textContent = text;
 }
 
+// ---------- Earth Engine band layers ----------
+//
+// Each preset turns a cloud-reduced Sentinel-2 composite into one viewable
+// layer. `image` returns the ee.Image to draw, `vis` is its visualisation.
+// `note` is written in plain language for the end user — it is the label that
+// tells them what they are actually looking at.
+
+const EE_BANDS = [
+  {
+    id: 'ndvi',
+    label: 'Vegetation (NDVI)',
+    note: 'Plant vigour. Green = dense healthy canopy, orange/red = bare soil, rock, sand or water.',
+    scaleNote: 'bare → dense canopy',
+    palette: ['#9e2f00', '#d95f0e', '#fec44f', '#addd8e', '#31a354', '#00602a'],
+    image: (s) => s.normalizedDifference(['B8', 'B4']).rename('ndvi'),
+    vis: { min: -0.1, max: 0.85 }
+  },
+  {
+    id: 'truecolor',
+    label: 'True colour',
+    note: 'Natural colour — roughly what your eye would see from orbit.',
+    image: (s) => s,
+    vis: { bands: ['B4', 'B3', 'B2'], min: 0, max: 3000 }
+  },
+  {
+    id: 'water',
+    label: 'Water (NDWI)',
+    note: 'Surface water and flooding. Blue = open water, pale = dry ground.',
+    scaleNote: 'dry → open water',
+    palette: ['#f7f4e9', '#d5e8e4', '#7fcdbb', '#2c7fb8', '#08306b'],
+    image: (s) => s.normalizedDifference(['B3', 'B8']).rename('ndwi'),
+    vis: { min: -0.4, max: 0.5 }
+  },
+  {
+    id: 'moisture',
+    label: 'Soil moisture (NDMI)',
+    note: 'Moisture held in the canopy and soil. Blue = wet, brown = dry — this is what separates drought stress from pest damage.',
+    scaleNote: 'dry → wet',
+    palette: ['#8c510a', '#d8b365', '#f6e8c3', '#c7eae5', '#5ab4ac', '#01665e'],
+    image: (s) => s.normalizedDifference(['B8', 'B11']).rename('ndmi'),
+    vis: { min: -0.4, max: 0.5 }
+  },
+  {
+    id: 'infrared',
+    label: 'False-colour infrared',
+    note: 'Near-infrared composite. Living vegetation glows red — the classic way to spot crop vs bare ground.',
+    image: (s) => s,
+    vis: { bands: ['B8', 'B4', 'B3'], min: 0, max: 3500 }
+  },
+  {
+    id: 'agriculture',
+    label: 'Agriculture (SWIR)',
+    note: 'Short-wave infrared composite. Highlights crop type and residue; bright green = vigorous growth.',
+    image: (s) => s,
+    vis: { bands: ['B11', 'B8', 'B2'], min: 0, max: 3500 }
+  }
+];
+
+let currentBandId = 'ndvi';
+
+function currentBand() {
+  return EE_BANDS.find((b) => b.id === currentBandId) || EE_BANDS[0];
+}
+
+// Cloud-reduced Sentinel-2 composite over the last 90 days for the given area.
+function sentinelComposite(region) {
+  const end = new Date();
+  const start = new Date(end.getTime() - 90 * 24 * 3600 * 1000);
+  return ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+    .filterBounds(region)
+    .filterDate(start.toISOString().slice(0, 10), end.toISOString().slice(0, 10))
+    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 40))
+    .median();
+}
+
+function populateBandSelect() {
+  const sel = document.getElementById('band-select');
+  if (!sel) return;
+  sel.innerHTML = EE_BANDS
+    .map((b) => '<option value="' + b.id + '"' + (b.id === currentBandId ? ' selected' : '') + '>' + b.label + '</option>')
+    .join('');
+  sel.onchange = () => {
+    currentBandId = sel.value;
+    setBandNote();
+    if (eeReady) addBandLayer();
+    else setBandNote('Connect Earth Engine to view this layer.');
+  };
+  setBandNote();
+}
+
+function setBandNote(override) {
+  const el = document.getElementById('band-note');
+  if (!el) return;
+  el.textContent = override || currentBand().note;
+}
+
+// Draws the selected band across the whole visible scene (not clipped to a
+// region) so the user can see context while choosing where to survey.
+function addBandLayer() {
+  if (!eeReady || !geeMap) return;
+  const band = currentBand();
+  try {
+    const v = geeMap.getBounds();
+    const area = ee.Geometry.Rectangle([v.getWest(), v.getSouth(), v.getEast(), v.getNorth()]);
+    const image = band.image(sentinelComposite(area));
+    const vis = Object.assign({}, band.vis);
+    if (band.palette) vis.palette = band.palette;
+
+    setMapStatus('Loading ' + band.label + '…');
+    image.getMapId(vis, (obj, err) => {
+      if (err || !obj) {
+        console.warn('[FieldLoop] band layer error:', err);
+        setMapStatus(band.label + ' unavailable here — showing base imagery.');
+        return;
+      }
+      if (ndviLayer) ndviLayer.remove();
+      ndviLayer = L.tileLayer(obj.urlFormat, { opacity: 0.8, maxZoom: 19 }).addTo(geeMap);
+      if (treatmentOverlay) treatmentOverlay.bringToFront();
+      setMapStatus('Earth Engine · ' + band.label + ' (Sentinel-2, last 90 days)');
+      renderBandScale();
+    });
+  } catch (err) {
+    console.warn('[FieldLoop] band layer failed:', err);
+    setMapStatus('Band layer failed — continuing on base imagery.');
+  }
+}
+
+// Colour scale for the active index, so the layer is readable.
+function renderBandScale() {
+  const el = document.getElementById('band-scale');
+  if (!el) return;
+  const band = currentBand();
+  if (!band.palette) { el.innerHTML = ''; el.hidden = true; return; }
+  el.hidden = false;
+  el.innerHTML =
+    '<span class="ramp-label">' + band.label.replace(/ \(.*\)/, '') + '</span>' +
+    '<span class="ramp-bar" style="background:linear-gradient(90deg,' + band.palette.join(',') + ')"></span>' +
+    '<span class="ramp-label">' + (band.scaleNote || '') + '</span>';
+}
+
 // ---------- Earth Engine ----------
 
 function connectEarthEngine() {
@@ -232,44 +375,11 @@ function connectEarthEngine() {
 function eeInitialize(cfg) {
   ee.initialize(
     null, null,
-    () => { eeReady = true; setMapStatus('Earth Engine connected — loading NDVI…'); addNdviOverlay(); },
+    () => { eeReady = true; addBandLayer(); },
     (err) => { console.warn('[FieldLoop] EE init error:', err); setMapStatus('Earth Engine init failed — continuing on base imagery.'); },
     null,
     cfg.EE_PROJECT || null
   );
-}
-
-// Sentinel-2 NDVI over the drawn region, least-cloudy scene from the last 60 days.
-function addNdviOverlay() {
-  if (!eeReady || !geeMap) return;
-  try {
-    const [w, s, e, n] = regionBounds;
-    const region = ee.Geometry.Rectangle([w, s, e, n]);
-    const end = new Date();
-    const start = new Date(end.getTime() - 60 * 24 * 3600 * 1000);
-    const scene = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
-      .filterBounds(region)
-      .filterDate(start.toISOString().slice(0, 10), end.toISOString().slice(0, 10))
-      .sort('CLOUDY_PIXEL_PERCENTAGE')
-      .first();
-    const ndvi = ee.Image(scene).normalizedDifference(['B8', 'B4']);
-    ndvi.getMapId(
-      { min: 0, max: 0.9, palette: ['d7191c', 'fdae61', 'ffffbf', 'a6d96a', '1a9641'] },
-      (obj, err) => {
-        if (err || !obj) {
-          console.warn('[FieldLoop] NDVI getMapId error:', err);
-          setMapStatus('NDVI layer failed — continuing on base imagery.');
-          return;
-        }
-        if (ndviLayer) ndviLayer.remove();
-        ndviLayer = L.tileLayer(obj.urlFormat, { opacity: 0.55, maxZoom: 19 }).addTo(geeMap);
-        setMapStatus('Earth Engine connected — Sentinel-2 NDVI overlay active.');
-      }
-    );
-  } catch (err) {
-    console.warn('[FieldLoop] NDVI overlay failed:', err);
-    setMapStatus('NDVI layer failed — continuing on base imagery.');
-  }
 }
 
 // ---------- Offline fallback ----------

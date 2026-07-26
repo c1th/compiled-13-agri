@@ -97,6 +97,35 @@ body {
 
 .map-status { color: var(--muted); font-size: 12px; }
 
+.field-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--muted);
+}
+
+.band-select { min-width: 178px; }
+
+/* Plain-language "what am I looking at" line under the toolbar. */
+.band-note {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0 0 12px;
+}
+
+.band-scale {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.band-scale .ramp-bar { width: 150px; }
+
 .gee-map {
   height: 460px;
   border-radius: 6px;
