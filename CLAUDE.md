@@ -7,9 +7,13 @@ project changes; it is the first thing read at the start of a session.
 
 - **Always `git pull --rebase origin main` before making any edits.** A teammate
   works in this repo concurrently; editing on a stale tree causes conflicts.
-- **Always `git push origin main` after committing.** Do not leave commits
-  sitting locally — the teammate needs to see them.
-- Commit after each self-contained change with a short message.
+- **Commit and push each change as you finish it — do not batch pushes to the
+  end of the run.** A teammate is working in parallel and needs to see work as
+  it lands, not in one drop at the end. The cycle per change is:
+  `pull --rebase` → edit → verify → `commit` → `push`. Then repeat for the next
+  change. A multi-part task means several commits and several pushes, not one.
+- Push even when more work is coming in the same turn. Never leave a finished,
+  verified change sitting unpushed while starting the next one.
 - Branch is `main`; remote is `origin` (github.com/c1th/compiled-13-agri).
 
 ## What this is
