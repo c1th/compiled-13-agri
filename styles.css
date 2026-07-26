@@ -293,10 +293,9 @@ body {
   line-height: 1.5;
 }
 
-/* ---------- Buttons & inputs (shared) ---------- */
+/* ---------- Buttons (shared) ---------- */
 
-.btn,
-.file-btn {
+.btn {
   display: inline-block;
   background: var(--bg);
   color: var(--text);
@@ -309,63 +308,11 @@ body {
   cursor: pointer;
 }
 
-.btn:hover:not(:disabled),
-.file-btn:hover { border-color: var(--muted); }
+.btn:hover:not(:disabled) { border-color: var(--muted); }
 
 .btn:disabled { opacity: 0.45; cursor: default; }
 
-/* ---------- Agronomist ---------- */
-
-.agronomist-panel { grid-column: 1; }
-
-.ag-stage {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-top: 14px;
-}
-
-.ag-thumb {
-  max-width: 140px;
-  max-height: 100px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  object-fit: cover;
-}
-
-.ag-card {
-  margin-top: 16px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 14px 16px;
-}
-
-.ag-pest { font-weight: 600; margin-bottom: 10px; }
-
-.ag-conf-row {
-  display: flex;
-  justify-content: space-between;
-  font-size: 13px;
-  margin-bottom: 5px;
-}
-
-.ag-conf-label { color: var(--muted); }
-
-.ag-bar {
-  height: 6px;
-  background: var(--bg);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 12px;
-}
-
-.ag-bar-fill {
-  height: 100%;
-  background: var(--text);
-  border-radius: 3px;
-}
-
-.ag-rec-row {
+.kv-row {
   display: flex;
   justify-content: space-between;
   gap: 16px;
@@ -373,22 +320,31 @@ body {
   line-height: 1.7;
 }
 
-.ag-rec-row > span:first-child { color: var(--muted); }
-
-.ag-error { margin-top: 14px; color: var(--muted); font-size: 13px; }
+.kv-row > span:first-child { color: var(--muted); }
 
 /* ---------- Procurement ---------- */
 
-.procure-panel { grid-column: 2; }
+.procure-panel { grid-column: 1 / -1; }
 
-.procure-empty { color: var(--muted); font-size: 13px; }
-
-.procure-summary {
+.procure-row {
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 12px 16px;
-  margin-bottom: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
 }
+
+.procure-row:last-child { margin-bottom: 0; }
+
+.procure-info {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 12px;
+}
+
+.procure-name { font-weight: 600; flex: 1; }
+
+.procure-qty { color: var(--muted); font-size: 13px; }
 
 .order-card {
   margin-top: 16px;
