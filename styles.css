@@ -122,7 +122,10 @@ body {
   border-top: 1px solid var(--border);
 }
 
-.treatment-overlay { image-rendering: auto; }
+.treatment-overlay {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
 
 .map-tooltip-leaflet {
   background: var(--bg);
@@ -153,7 +156,7 @@ body {
   border: 1px solid var(--border);
 }
 
-/* Weighted treatment density layer, stretched over the imagery. */
+/* Weighted treatment layer — classified cells, kept hard-edged (no smoothing). */
 .map-heat {
   position: absolute;
   inset: 0;
@@ -162,6 +165,8 @@ body {
   border-radius: 6px;
   pointer-events: none;
   z-index: 2;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
 }
 
 .zone-marker {
