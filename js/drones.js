@@ -198,6 +198,24 @@ function recommendAssignments() {
   lastAssignments = { result, unassigned };
   renderAssignments();
   renderAssignmentRings();
+  persistFleet();
+}
+
+// Write the configured roster back into the plan's `fleet` (frozen contract
+// shape). The swarm module reads data.fleet, so this is what makes the
+// hand-off real rather than an empty array.
+function persistFleet() {
+  DRONE_DATA.fleet = drones.map((d) => ({
+    id: d.id,
+    home: [d.home[0], d.home[1]],
+    carries: d.carries,
+    tank_gal: d.tank_gal
+  }));
+  try {
+    sessionStorage.setItem('fieldloop_plan', JSON.stringify(DRONE_DATA));
+  } catch (err) {
+    console.warn('[FieldLoop] could not persist fleet:', err);
+  }
 }
 
 function dist(home, zone) {
