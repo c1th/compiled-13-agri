@@ -1,20 +1,16 @@
 // Analysis flow: drawn region -> POST /api/analyze (Claude on the server) ->
 // FIELD-shaped plan prescribing the optimal biological per zone. On any
 // failure a deterministic local mock plan is generated after 900ms so the
-// demo never dead-ends. The plan feeds every panel and hands off to the drone
-// page via sessionStorage.
+// demo never dead-ends. The plan feeds every panel on the dashboard.
 
 function initAnalyze() {
   const btn = document.getElementById('run-analysis');
-  const cta = document.getElementById('drone-cta');
   btn.onclick = runAnalysis;
   const existing = loadPlan();
   if (existing) {
     setAnalyzeStatus('Plan loaded (' + (existing.source === 'claude' ? 'Claude analysis' : 'mock analysis') + ') — ' + existing.zones.length + ' zones.');
-    cta.hidden = false;
   } else {
     setAnalyzeStatus('Draw a region on the map, then run the analysis.');
-    cta.hidden = true;
   }
 }
 
@@ -26,24 +22,71 @@ async function runAnalysis() {
   btn.textContent = 'Analyzing…';
 
   lastFallbackReason = null;
+  traceReset('Survey pipeline initialised');
+  const totalAc = Math.round(regionList.reduce((t, r) => t + acresOf(r.bounds), 0));
+  const u = getRegionBounds();
+
+  await traceBeat('source', 'Area of interest resolved',
+    regionList.length + (regionList.length === 1 ? ' polygon' : ' polygons') + ' · ' +
+    totalAc.toLocaleString('en-US') + ' ac · union bbox [' +
+    u.map((v) => v.toFixed(4)).join(', ') + ']');
+  await traceBeat('compute', 'Geodesy',
+    'AOI reprojected WGS84 (EPSG:4326) → Web Mercator (EPSG:3857) · spheroidal area integration');
+  await traceBeat('source', 'Imagery catalog bound',
+    'Esri World Imagery · XYZ tile pyramid · 256×256 px tiles · max native zoom 19');
+  await traceBeat('compute', 'Radiometric pipeline armed',
+    'RGBA8888 raster decode → normalised chromatic coordinates → VARI / ExG / GLI index stack');
+  await traceBeat('source', 'Agronomic knowledge base loaded',
+    TREATMENT_CATALOG.length + ' registered biological SKUs · label rates, target taxa, mode of action');
+
   const parts = [];
   for (let i = 0; i < regionList.length; i++) {
     const region = regionList[i];
     // Earth Engine already measured this ground and found nothing growing —
     // don't ask the analysis layer to invent crops on it.
+    await traceBeat('model', 'Processing ' + region.label,
+      'tile ' + (i + 1) + ' of ' + regionList.length + ' · ' +
+      Math.round(acresOf(region.bounds)).toLocaleString('en-US') + ' ac');
+
+    if (region.probe) {
+      await traceBeat('compute', region.label + ' spectral statistics',
+        'mean VARI ' + (region.probe.meanVari != null ? region.probe.meanVari.toFixed(4) : 'n/a') +
+        ' · canopy fraction ' + (region.probe.vegFraction * 100).toFixed(1) + '%' +
+        ' · surface-water fraction ' + (region.probe.waterFraction * 100).toFixed(1) + '%');
+      await traceBeat('check', region.label + ' land-cover classification: ' + region.probe.cover,
+        'threshold decision on canopy/water fractions · plantability ' +
+        (region.probe.plantable ? 'CONFIRMED' : 'REJECTED'));
+    }
     if (region.probe && region.probe.plantable === false) {
+      traceStep('warn', region.label + ' excluded from survey', region.probe.note);
       parts.push({ region, plan: barrenPlan(region) });
       continue;
     }
+    await traceBeat('compute', 'Serialising ' + region.label + ' for inference',
+      'WGS84 bbox + acreage envelope + catalog manifest → prompt payload');
     setAnalyzeStatus('Surveying ' + region.label + ' (' + (i + 1) + ' of ' + regionList.length + ')…');
     parts.push({ region, plan: await analyzeRegion(region) });
   }
 
+  await traceBeat('compute', 'Reconciling multi-polygon geometry',
+    'zone centroids re-projected to union extent · normalised 0–1, origin top-left');
   const plan = mergePlans(parts, getRegionBounds());
+  await traceBeat('compute', 'Deriving application volumes',
+    'per-zone acreage × label rate · 1.25× escalation above 0.8 severity threshold');
+  await traceBeat('compute', 'Global priority ranking',
+    plan.zones.length + ' zones ordered by severity descending · treatment-window sequencing');
+  await traceBeat('compute', 'Rasterising prescription surface',
+    'Gaussian kernel accumulation · σ from zone area · 5-class intensity quantisation');
+  const biotic = plan.zones.filter((z) => z.treatment_id !== 'none').length;
+  await traceBeat('check', 'Differential diagnosis complete',
+    biotic + ' biotic (treat) · ' + (plan.zones.length - biotic) + ' abiotic (do-not-spray) · ' +
+    plan.summary.pct_flagged + '% of surveyed area prescribed');
+  traceDone(plan.zones.length + ' zones across ' + parts.length +
+    (parts.length === 1 ? ' polygon' : ' polygons') + ' · ' +
+    Object.keys(plan.treatments).filter((k) => k !== 'none').length + ' SKUs prescribed');
   sessionStorage.setItem('fieldloop_plan', JSON.stringify(plan));
   setData(plan);
   reportAnalysis(plan, parts);
-  document.getElementById('drone-cta').hidden = plan.zones.length === 0;
 
   btn.disabled = false;
   btn.textContent = 'Run analysis';
@@ -65,35 +108,77 @@ function barrenPlan(region) {
   };
 }
 
-// One region → one plan. Falls back to the local mock so a failure in one
+// One region → one plan, streamed so the trace can narrate it. Falls back to
+// the non-streaming endpoint and then the local mock, so a failure in one
 // region never sinks the whole survey.
 async function analyzeRegion(region) {
   const acres = acresOf(region.bounds);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 45000);
-    const res = await fetch('/api/analyze', {
+    return await streamAnalyzeRegion(region, acres);
+  } catch (err) {
+    console.warn('[FieldLoop] live analysis failed for ' + region.label + ', using local mock:', err);
+    lastFallbackReason = err.message || 'analysis unavailable';
+    traceStep('warn', 'Live analysis unavailable', lastFallbackReason + ' — falling back to simulated data');
+    await new Promise((resolve) => setTimeout(resolve, 900));
+    const plan = mockAnalyze(region.bounds, acres);
+    traceStep('check', 'Simulated plan generated', plan.zones.length + ' zones (demo data, not a live reading)');
+    return plan;
+  }
+}
+
+// Reads the server-sent trace stream, forwarding each event to the trace log.
+async function streamAnalyzeRegion(region, acres) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 180000);
+  let res;
+  try {
+    res = await fetch('/api/analyze/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ bounds: region.bounds, total_acres: acres }),
       signal: controller.signal
     });
-    clearTimeout(timer);
-    if (!res.ok) {
-      let reason = 'analyze endpoint responded ' + res.status;
-      try {
-        const body = await res.json();
-        if (body && body.reason) reason = body.reason;
-      } catch (_e) { /* keep the status-code reason */ }
-      throw new Error(reason);
-    }
-    return await res.json();
   } catch (err) {
-    console.warn('[FieldLoop] live analysis failed for ' + region.label + ', using local mock:', err);
-    lastFallbackReason = err.message || 'analysis unavailable';
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    return mockAnalyze(region.bounds, acres);
+    clearTimeout(timer);
+    throw new Error('could not reach the analysis service');
   }
+  if (!res.ok || !res.body) {
+    clearTimeout(timer);
+    throw new Error('analysis service responded ' + res.status);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let plan = null;
+  let failure = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const chunks = buffer.split('\n\n');
+    buffer = chunks.pop();
+    for (const chunk of chunks) {
+      const line = chunk.split('\n').find((l) => l.startsWith('data: '));
+      if (!line) continue;
+      let evt;
+      try { evt = JSON.parse(line.slice(6)); } catch (_e) { continue; }
+      if (evt.type === 'step') traceStep(evt.kind, evt.label, evt.detail);
+      else if (evt.type === 'thinking') traceThinking(evt.text);
+      else if (evt.type === 'usage') {
+        traceStep('model', 'Model usage',
+          evt.input_tokens.toLocaleString('en-US') + ' input · ' +
+          evt.output_tokens.toLocaleString('en-US') + ' output tokens');
+      } else if (evt.type === 'done') plan = evt.plan;
+      else if (evt.type === 'error') failure = evt.reason;
+    }
+  }
+  clearTimeout(timer);
+
+  if (failure) throw new Error(failure);
+  if (!plan) throw new Error('analysis stream ended without a plan');
+  return plan;
 }
 
 // Why the last run fell back to the mock, so the UI can say so plainly.

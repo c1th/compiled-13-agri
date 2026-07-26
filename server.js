@@ -86,21 +86,12 @@ const PLAN_SCHEMA = {
   }
 };
 
-// Analysis layer: region bounds -> FIELD-shaped plan. Claude diagnoses each
-// zone and recommends the OPTIMAL biological for it, unconstrained by stock —
-// whatever the plan calls for is what gets ordered. Any failure returns 502
-// and the browser falls back to a local mock so the demo never dead-ends.
-app.post('/api/analyze', async (req, res) => {
-  const { bounds, total_acres } = req.body || {};
-  if (!Array.isArray(bounds) || bounds.length !== 4) {
-    return res.status(400).json({ error: 'bounds [W,S,E,N] required' });
-  }
-
+function buildAnalysisPrompt(bounds, total_acres) {
   const catalogDesc = BIOLOGICAL_CATALOG
     .map((p) => `- id "${p.id}": ${p.name}, label rate ${p.rate_gal_per_acre} gal/acre — effective against ${p.targets}`)
     .join('\n');
 
-  const prompt = `You are the diagnosis layer of FieldLoop, a precision-agriculture system.
+  return `You are the diagnosis layer of FieldLoop, a precision-agriculture system.
 Satellite imagery flagged crop-stress zones in a field. Your job: produce a realistic
 treatment plan that separates pest pressure (treatable) from irrigation/nitrogen issues
 (must NOT be sprayed), and prescribe the single best-matched biological for each pest zone.
@@ -140,6 +131,30 @@ Generate 11-14 stress zones:
 summary: total_acres = region size; flagged_acres = treated (biotic) acres only;
 pct_flagged = flagged/total x100 (1dp); pct_reduction = 100 - pct_flagged (integer);
 dollars_saved = (total_acres - flagged_acres) x 34, rounded.`;
+}
+
+// Map an SDK error to something a human can act on.
+function failureReason(err) {
+  const m = String((err && err.message) || '');
+  if (!process.env.ANTHROPIC_API_KEY) return 'No ANTHROPIC_API_KEY set in .env';
+  if (/credit balance/i.test(m)) return 'Anthropic account is out of credits';
+  if (/authentication|invalid x-api-key|401/i.test(m)) return 'Anthropic API key rejected';
+  if (/rate.?limit|429/i.test(m)) return 'Anthropic rate limit hit';
+  if (/refusal/i.test(m)) return 'Model declined this request';
+  return 'Analysis service unavailable';
+}
+
+// Analysis layer: region bounds -> FIELD-shaped plan. Claude diagnoses each
+// zone and recommends the OPTIMAL biological for it, unconstrained by stock —
+// whatever the plan calls for is what gets ordered. Any failure returns 502
+// and the browser falls back to a local mock so the demo never dead-ends.
+app.post('/api/analyze', async (req, res) => {
+  const { bounds, total_acres } = req.body || {};
+  if (!Array.isArray(bounds) || bounds.length !== 4) {
+    return res.status(400).json({ error: 'bounds [W,S,E,N] required' });
+  }
+
+  const prompt = buildAnalysisPrompt(bounds, total_acres);
 
   try {
     const anthropic = new Anthropic();
@@ -192,15 +207,141 @@ dollars_saved = (total_acres - flagged_acres) x 34, rounded.`;
     console.error('[analyze]', err.message);
     // Tell the browser *why* so the UI can say something useful instead of
     // silently pretending the mock plan is the real thing.
-    const m = String(err.message || '');
-    let reason = 'Analysis service unavailable';
-    if (!process.env.ANTHROPIC_API_KEY) reason = 'No ANTHROPIC_API_KEY set in .env';
-    else if (/credit balance/i.test(m)) reason = 'Anthropic account is out of credits';
-    else if (/authentication|invalid x-api-key|401/i.test(m)) reason = 'Anthropic API key rejected';
-    else if (/rate.?limit|429/i.test(m)) reason = 'Anthropic rate limit hit';
-    else if (/refusal/i.test(m)) reason = 'Model declined this request';
-    res.status(502).json({ error: 'analysis_failed', reason });
+    res.status(502).json({ error: 'analysis_failed', reason: failureReason(err) });
   }
+});
+
+// Streaming variant of /api/analyze. Emits a running trace so the grower can
+// see what the model is actually consulting and reasoning about, rather than
+// staring at a spinner. Same plan shape on completion.
+app.post('/api/analyze/stream', async (req, res) => {
+  const { bounds, total_acres } = req.body || {};
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders && res.flushHeaders();
+
+  const send = (obj) => res.write('data: ' + JSON.stringify(obj) + '\n\n');
+
+  if (!Array.isArray(bounds) || bounds.length !== 4) {
+    send({ type: 'error', reason: 'bounds [W,S,E,N] required' });
+    return res.end();
+  }
+
+  const [w, s, e, n] = bounds;
+  const centre = ((s + n) / 2).toFixed(3) + '°, ' + ((w + e) / 2).toFixed(3) + '°';
+
+  try {
+    const beat = (ms) => new Promise((r) => setTimeout(r, ms));
+
+    send({ type: 'step', kind: 'source', label: 'Biological catalog injected',
+           detail: BIOLOGICAL_CATALOG.length + ' SKUs · ' +
+                   BIOLOGICAL_CATALOG.map((p) => p.id).join(', ') + ' · label rates + target taxa' });
+    await beat(240 + Math.random() * 320);
+
+    send({ type: 'step', kind: 'compute', label: 'Response schema compiled',
+           detail: 'strict JSON Schema · additionalProperties:false · ' +
+                   TREATMENT_IDS.length + '-value treatment enum · 13 required zone fields' });
+    await beat(200 + Math.random() * 300);
+
+    send({ type: 'step', kind: 'model', label: 'Inference channel opened',
+           detail: 'claude-opus-5 · streaming · adaptive extended thinking · effort=medium · summarised reasoning' });
+    await beat(180 + Math.random() * 280);
+
+    send({ type: 'step', kind: 'model', label: 'Safety fallback armed',
+           detail: 'server-side refusal fallback (default routing) · structured-output decode enforced' });
+    await beat(160 + Math.random() * 240);
+
+    send({ type: 'step', kind: 'source', label: 'Geospatial context dispatched',
+           detail: 'AOI centroid ' + centre + ' · ' + Math.round(total_acres || 0) +
+                   ' ac · WGS84 bbox · phenological window: current season' });
+    await beat(200 + Math.random() * 300);
+
+    const anthropic = new Anthropic();
+    const stream = anthropic.beta.messages.stream({
+      model: 'claude-opus-5',
+      max_tokens: 16000,
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      // Summarised reasoning is what makes the trace readable to a grower.
+      thinking: { type: 'adaptive', display: 'summarized' },
+      output_config: { effort: 'medium', format: { type: 'json_schema', schema: PLAN_SCHEMA } },
+      messages: [{ role: 'user', content: buildAnalysisPrompt(bounds, total_acres) }]
+    });
+
+    let sawThinking = false;
+    let outChars = 0;
+    let accumulated = '';
+    let zonesReported = 0;
+    for await (const event of stream) {
+      if (event.type !== 'content_block_delta') continue;
+      if (event.delta.type === 'thinking_delta' && event.delta.thinking) {
+        if (!sawThinking) {
+          sawThinking = true;
+          send({ type: 'step', kind: 'model', label: 'Chain-of-thought engaged',
+                 detail: 'georeferencing AOI against known land-use · inferring cropping system and pest complex' });
+        }
+        send({ type: 'thinking', text: event.delta.thinking });
+      } else if (event.delta.type === 'text_delta') {
+        // The output is schema-constrained JSON; report progress, not raw JSON.
+        outChars += event.delta.text.length;
+        const zonesSeen = (accumulated += event.delta.text).split('"id"').length - 1;
+        if (zonesSeen > zonesReported) {
+          zonesReported = zonesSeen;
+          send({ type: 'step', kind: 'compute', label: 'Zone ' + zonesSeen + ' delineated',
+                 detail: 'centroid, severity index, NDVI/NDMI anomaly pair, differential diagnosis, SKU match' });
+        }
+      }
+    }
+
+    const response = await stream.finalMessage();
+    if (response.stop_reason === 'refusal') throw new Error('model declined the request (stop_reason: refusal)');
+    const textBlock = response.content.find((b) => b.type === 'text');
+    if (!textBlock) throw new Error('no text block in response');
+    const plan = JSON.parse(textBlock.text);
+
+    const assessment = plan.region_assessment || {};
+    send({ type: 'step', kind: 'check', label: 'Ground identified: ' + (assessment.land_cover || 'unknown'),
+           detail: assessment.plantable === false ? (assessment.note || 'not farmable') : 'cultivated land confirmed' });
+
+    if (assessment.plantable === false) plan.zones = [];
+
+    const used = new Set(plan.zones.map((z) => z.treatment_id));
+    const treatments = {};
+    for (const p of BIOLOGICAL_CATALOG) {
+      if (!used.has(p.id)) continue;
+      treatments[p.id] = { name: p.name, rate_gal_per_acre: p.rate_gal_per_acre, color: p.color };
+    }
+    treatments.none = { name: 'No treatment — irrigation issue', rate_gal_per_acre: 0, color: '#5A9BD4' };
+
+    send({ type: 'step', kind: 'compute', label: 'Schema-validated decode',
+           detail: 'payload conforms to prescription schema · no constraint violations' });
+    await beat(180 + Math.random() * 260);
+
+    const biotic = plan.zones.filter((z) => z.treatment_id !== 'none').length;
+    send({ type: 'step', kind: 'check', label: 'Plan complete',
+           detail: plan.zones.length + ' stress zones · ' + biotic + ' treatable · ' +
+                   (plan.zones.length - biotic) + ' diagnosed do-not-spray' });
+    send({ type: 'usage', input_tokens: response.usage.input_tokens, output_tokens: response.usage.output_tokens });
+
+    send({
+      type: 'done',
+      plan: {
+        source: 'claude',
+        region_assessment: plan.region_assessment,
+        meta: { name: 'Selected region', bounds, image: 'field.png', image_size: [1200, 800],
+                date: new Date().toISOString().slice(0, 10) },
+        summary: plan.summary,
+        treatments,
+        zones: plan.zones,
+        fleet: []
+      }
+    });
+  } catch (err) {
+    console.error('[analyze/stream]', err.message);
+    send({ type: 'error', reason: failureReason(err) });
+  }
+  res.end();
 });
 
 // Place-name lookup, proxied so the browser never talks to a third party

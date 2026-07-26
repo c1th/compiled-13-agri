@@ -243,6 +243,9 @@ function loadTile(z, x, y) {
 async function sampleRegionCover(bounds) {
   const [w, s, e, n] = bounds;
   const z = pickZoom(bounds);
+  const say = (kind, label, detail) => {
+    if (typeof traceStep === 'function') traceStep(kind, label, detail);
+  };
   const x0 = Math.floor(lonToTileX(w, z)), x1 = Math.floor(lonToTileX(e, z));
   const y0 = Math.floor(latToTileY(n, z)), y1 = Math.floor(latToTileY(s, z));
 
@@ -260,6 +263,8 @@ async function sampleRegionCover(bounds) {
       }));
     }
   }
+  say('source', 'Reading satellite imagery',
+      'Esri World Imagery · ' + jobs.length + ' tile' + (jobs.length === 1 ? '' : 's') + ' at zoom ' + z);
   await Promise.all(jobs);
 
   // Pixel window covering just the region inside the composited tiles.
@@ -295,8 +300,12 @@ async function sampleRegionCover(bounds) {
   const vegFraction = veg / total;
   const waterFraction = water / total;
   const meanVari = variSum / total;
-  return Object.assign({ vegFraction, waterFraction, meanVari },
-    classifyCover(vegFraction, waterFraction));
+  say('compute', 'Computing vegetation index (VARI)',
+      total.toLocaleString('en-US') + ' pixels · mean VARI ' + meanVari.toFixed(3));
+  const verdict = classifyCover(vegFraction, waterFraction);
+  say('check', 'Ground cover: ' + verdict.cover,
+      Math.round(vegFraction * 100) + '% vegetated · ' + Math.round(waterFraction * 100) + '% water');
+  return Object.assign({ vegFraction, waterFraction, meanVari }, verdict);
 }
 
 function classifyCover(vegFraction, waterFraction) {

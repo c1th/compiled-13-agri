@@ -749,3 +749,60 @@ body {
   line-height: 1.5;
   margin-top: 12px;
 }
+
+/* ---------- Analysis trace ---------- */
+
+.trace-panel { grid-column: 1 / -1; }
+
+.trace-log {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  padding: 10px 12px;
+}
+
+.trace-row {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 4px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.trace-row + .trace-row { border-top: 1px solid rgba(42, 52, 65, 0.6); }
+
+.trace-time { color: var(--muted); font-size: 10px; width: 42px; flex: none; text-align: right; }
+
+.trace-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  width: 62px;
+  flex: none;
+  border-radius: 3px;
+  padding: 2px 0;
+  text-align: center;
+}
+
+.trace-row.src  .trace-tag { background: rgba(90, 155, 212, 0.16); color: #7FB6E8; }
+.trace-row.cmp  .trace-tag { background: rgba(232, 163, 61, 0.16); color: #E8A33D; }
+.trace-row.mdl  .trace-tag { background: rgba(123, 75, 148, 0.22); color: #C89BE0; }
+.trace-row.chk  .trace-tag { background: rgba(74, 222, 128, 0.14); color: var(--accent); }
+.trace-row.wrn  .trace-tag { background: rgba(236, 107, 100, 0.16); color: #EC6B64; }
+.trace-row.think .trace-tag { background: rgba(139, 152, 165, 0.14); color: var(--muted); }
+
+.trace-body { flex: 1; min-width: 0; }
+
+.trace-body strong { font-weight: 600; }
+
+.trace-detail { color: var(--muted); display: block; }
+
+.trace-think {
+  color: var(--muted);
+  font-style: italic;
+  white-space: pre-wrap;
+  display: block;
+}
