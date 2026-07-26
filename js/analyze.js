@@ -25,6 +25,7 @@ async function runAnalysis() {
   btn.disabled = true;
   btn.textContent = 'Analyzing…';
 
+  lastFallbackReason = null;
   const parts = [];
   for (let i = 0; i < regionList.length; i++) {
     const region = regionList[i];
@@ -78,14 +79,25 @@ async function analyzeRegion(region) {
       signal: controller.signal
     });
     clearTimeout(timer);
-    if (!res.ok) throw new Error('analyze endpoint responded ' + res.status);
+    if (!res.ok) {
+      let reason = 'analyze endpoint responded ' + res.status;
+      try {
+        const body = await res.json();
+        if (body && body.reason) reason = body.reason;
+      } catch (_e) { /* keep the status-code reason */ }
+      throw new Error(reason);
+    }
     return await res.json();
   } catch (err) {
     console.warn('[FieldLoop] live analysis failed for ' + region.label + ', using local mock:', err);
+    lastFallbackReason = err.message || 'analysis unavailable';
     await new Promise((resolve) => setTimeout(resolve, 900));
     return mockAnalyze(region.bounds, acres);
   }
 }
+
+// Why the last run fell back to the mock, so the UI can say so plainly.
+let lastFallbackReason = null;
 
 // Combine per-region plans into one FIELD-shaped plan. Zone x/y are recomputed
 // against the union extent so the frozen contract still holds downstream
@@ -175,6 +187,9 @@ function reportAnalysis(plan, parts) {
   let msg = 'Surveyed ' + parts.length + (parts.length === 1 ? ' region' : ' regions') +
     ' (' + src + ') — ' + plan.zones.length + ' zones, ' +
     products + ' product' + (products === 1 ? '' : 's') + ' prescribed.';
+  if (lastFallbackReason) {
+    msg += ' Live analysis unavailable (' + lastFallbackReason + '), so this is simulated data.';
+  }
   if (skipped.length) {
     msg += ' ' + skipped.map((r) => r.label).join(', ') +
       (skipped.length === 1 ? ' had' : ' had') + ' no plantable crop and was skipped.';

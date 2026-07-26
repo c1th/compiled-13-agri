@@ -202,7 +202,16 @@ dollars_saved = (total_acres - flagged_acres) x 34, rounded.`;
     });
   } catch (err) {
     console.error('[analyze]', err.message);
-    res.status(502).json({ error: 'analysis_failed' });
+    // Tell the browser *why* so the UI can say something useful instead of
+    // silently pretending the mock plan is the real thing.
+    const m = String(err.message || '');
+    let reason = 'Analysis service unavailable';
+    if (!process.env.ANTHROPIC_API_KEY) reason = 'No ANTHROPIC_API_KEY set in .env';
+    else if (/credit balance/i.test(m)) reason = 'Anthropic account is out of credits';
+    else if (/authentication|invalid x-api-key|401/i.test(m)) reason = 'Anthropic API key rejected';
+    else if (/rate.?limit|429/i.test(m)) reason = 'Anthropic rate limit hit';
+    else if (/refusal/i.test(m)) reason = 'Model declined this request';
+    res.status(502).json({ error: 'analysis_failed', reason });
   }
 });
 
