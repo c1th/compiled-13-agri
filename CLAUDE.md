@@ -291,6 +291,10 @@ in a real run and report back if the canvas doesn't render or console errors.
 - Vendored `three.module.js` and added a decorative (non-routing) `js/field-3d.js`
   "3D field preview" panel on `drones.html` — separate from the swarm sim,
   does not touch `js/swarm.js` / `js/swarm-mount.js` / `#swarm-mount`.
+- Added the crop-aware pesticide shed (`js/shed.js`, `data/crops.js`) and the
+  `/api/crop-intel` endpoint — Claude identifies the crop from region
+  coordinates and returns a tailored product list, with a latitude-band
+  offline fallback that is clearly labelled as an estimate.
 - Pivoted the whole visual system to the warm/soft/rounded language described
   in Hard constraints above, at the user's explicit request ("fully commit,
   no middle ground") — full reskin of `styles.css`, `index.html`, `drones.html`.

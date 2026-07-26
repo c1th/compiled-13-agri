@@ -453,6 +453,94 @@ function sourcingReason(err) {
   return 'Supplier search unavailable';
 }
 
+// Crop intelligence for the pesticide shed: given the drawn region's bounds,
+// Claude identifies the crop most likely grown there and returns the pest
+// complex plus a tailored product list (biologicals from our catalog first).
+// Any failure returns 502 with a reason; the browser falls back to its local
+// crop DB so the shed keeps working offline.
+const CROP_INTEL_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['crop', 'confidence', 'region_note', 'pests', 'products'],
+  properties: {
+    crop: { type: 'string' },
+    // 0..1 — how sure the model is given only coordinates and land-use knowledge.
+    confidence: { type: 'number' },
+    region_note: { type: 'string' },
+    pests: { type: 'array', items: { type: 'string' } },
+    products: {
+      type: 'array',
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['name', 'type', 'targets', 'rate_note'],
+        properties: {
+          name: { type: 'string' },
+          type: { type: 'string', enum: ['biological', 'conventional'] },
+          targets: { type: 'string' },
+          rate_note: { type: 'string' }
+        }
+      }
+    }
+  }
+};
+
+function buildCropIntelPrompt(bounds) {
+  const catalogDesc = BIOLOGICAL_CATALOG
+    .map((p) => `- ${p.name} (biological), label rate ${p.rate_gal_per_acre} gal/acre — ${p.targets}`)
+    .join('\n');
+
+  return `You are the crop-intelligence layer of FieldLoop, a precision-agriculture system.
+A grower drew a survey region on a satellite map. Region bounds [W,S,E,N]: ${JSON.stringify(bounds)}.
+
+Using your geographic and agricultural knowledge of these exact coordinates
+(climate, growing region, dominant local cropping systems):
+
+1. crop — the single crop most likely under cultivation here, as a short common
+   name ("corn", "winter wheat", "rice"). If the area is clearly not farmland,
+   name the most plausible nearby cropping system and say so in region_note.
+2. confidence — 0 to 1, honest about how much the coordinates alone tell you.
+3. region_note — one short sentence naming the growing region and why this crop
+   ("central Iowa corn belt", "Punjab rice–wheat rotation").
+4. pests — the 3-6 pests that most commonly hit this crop in this region.
+5. products — 4-6 pesticides a grower here would stock for that pest complex.
+   Prefer biologicals, and when one of these catalog products fits, use its
+   exact name so the dashboard can link it:
+${catalogDesc}
+   Fill the rest with widely used products (common name plus trade name).
+   rate_note is a one-phrase typical use rate or timing note. Only include
+   products genuinely appropriate for the crop and pests — never invent names.`;
+}
+
+app.post('/api/crop-intel', async (req, res) => {
+  const { bounds } = req.body || {};
+  if (!Array.isArray(bounds) || bounds.length !== 4) {
+    return res.status(400).json({ error: 'bounds [W,S,E,N] required' });
+  }
+
+  try {
+    const anthropic = new Anthropic();
+    const response = await anthropic.beta.messages.create({
+      model: 'claude-opus-5',
+      max_tokens: 3000,
+      betas: ['server-side-fallback-2026-07-01'],
+      fallbacks: 'default',
+      output_config: { effort: 'low', format: { type: 'json_schema', schema: CROP_INTEL_SCHEMA } },
+      messages: [{ role: 'user', content: buildCropIntelPrompt(bounds) }]
+    });
+
+    if (response.stop_reason === 'refusal') {
+      throw new Error('model declined the request (stop_reason: refusal)');
+    }
+    const textBlock = response.content.find((b) => b.type === 'text');
+    if (!textBlock) throw new Error('no text block in response');
+    res.json(JSON.parse(textBlock.text));
+  } catch (err) {
+    console.error('[crop-intel]', err.message);
+    res.status(502).json({ error: 'crop_intel_failed', reason: failureReason(err) });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`FieldLoop running at http://localhost:${PORT}`);
