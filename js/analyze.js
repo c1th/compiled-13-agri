@@ -28,6 +28,12 @@ async function runAnalysis() {
   const parts = [];
   for (let i = 0; i < regionList.length; i++) {
     const region = regionList[i];
+    // Earth Engine already measured this ground and found nothing growing —
+    // don't ask the analysis layer to invent crops on it.
+    if (region.probe && region.probe.plantable === false) {
+      parts.push({ region, plan: barrenPlan(region) });
+      continue;
+    }
     setAnalyzeStatus('Surveying ' + region.label + ' (' + (i + 1) + ' of ' + regionList.length + ')…');
     parts.push({ region, plan: await analyzeRegion(region) });
   }
@@ -40,6 +46,22 @@ async function runAnalysis() {
 
   btn.disabled = false;
   btn.textContent = 'Run analysis';
+}
+
+// A region Earth Engine measured as having no crop canopy: no zones, and the
+// reason carried through so the UI can explain itself.
+function barrenPlan(region) {
+  return {
+    source: 'earth-engine',
+    region_assessment: {
+      land_cover: region.probe.cover,
+      plantable: false,
+      note: region.label + ': ' + region.probe.note
+    },
+    summary: { total_acres: 0, flagged_acres: 0, pct_flagged: 0, pct_reduction: 0, dollars_saved: 0 },
+    treatments: {},
+    zones: []
+  };
 }
 
 // One region → one plan. Falls back to the local mock so a failure in one

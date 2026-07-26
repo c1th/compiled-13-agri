@@ -13,7 +13,21 @@ function initBreakdown(data) {
     .sort((a, b) => (a === 'none') - (b === 'none')); // 'none' always last
 
   if (!keys.length) {
-    body.innerHTML = '<span class="procure-empty">Run the analysis to see the recommended distribution.</span>';
+    // If regions were surveyed and found barren, say so rather than showing a
+    // generic prompt — the user needs to know why there is nothing here.
+    const barren = (data.regions || []).filter((r) => r.assessment && r.assessment.plantable === false);
+    if (barren.length) {
+      body.innerHTML = '<div class="tb-group nospray">' +
+        '<div class="tb-head"><span class="tb-name">No plantable crop found</span></div>' +
+        barren.map((r) =>
+          '<div class="tb-why"><strong>' + r.label + '</strong> — ' +
+          (r.assessment.land_cover || 'not farmland') + '. ' + (r.assessment.note || '') + '</div>'
+        ).join('') +
+        '<div class="tb-why">Move the region over cultivated farmland and run the analysis again.</div>' +
+        '</div>';
+      return;
+    }
+    body.innerHTML = '<span class="procure-empty">Draw a region on the map, then run the analysis.</span>';
     return;
   }
 

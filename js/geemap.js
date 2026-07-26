@@ -172,6 +172,7 @@ function onMapClick(evt) {
   regionsUserDrawn = true;
 
   drawRegionRects();
+  probeRegion(regions[regions.length - 1]);
   invalidatePlan();
   setMapStatus(regions.length > 1
     ? regions.length + ' regions selected \u2014 run the analysis to survey them all.'
@@ -180,9 +181,21 @@ function onMapClick(evt) {
 
 let regionsUserDrawn = false;
 
-// Every drawn region, for the analysis layer.
+// Every drawn region, plus whatever the land-cover probe found, for the
+// analysis layer.
 function getRegions() {
-  return regions.map((r) => ({ id: r.id, label: r.label, bounds: r.bounds.slice() }));
+  return regions.map((r) => ({
+    id: r.id, label: r.label, bounds: r.bounds.slice(), probe: r.probe || null
+  }));
+}
+
+// Short land-cover chip for a region row.
+function coverTag(r) {
+  if (r.probing) return '<span class="cover-tag pending">checking…</span>';
+  if (!r.probe) return '';
+  const cls = r.probe.plantable ? 'cover-tag ok' : 'cover-tag bad';
+  const ndvi = r.probe.ndvi == null ? '' : ' NDVI ' + r.probe.ndvi.toFixed(2);
+  return '<span class="' + cls + '" title="' + r.probe.note + '">' + r.probe.cover + ndvi + '</span>';
 }
 
 // Union of all regions — the extent the merged plan is expressed in.
@@ -214,6 +227,7 @@ function renderRegionList() {
       '<span class="region-coords num">' + s.toFixed(4) + ', ' + w.toFixed(4) +
         '  \u2192  ' + n.toFixed(4) + ', ' + e.toFixed(4) + '</span>' +
       '<span class="region-acres num">' + Math.round(acresOf(r.bounds)).toLocaleString('en-US') + ' ac</span>' +
+      coverTag(r) +
       '<button class="inv-remove" data-id="' + r.id + '" title="Remove region">&times;</button>';
     el.appendChild(row);
   }
@@ -478,6 +492,73 @@ function sentinelComposite(region) {
     .median();
 }
 
+// ---------- Land-cover probe ----------
+//
+// Measures mean NDVI (plant vigour) and NDWI (surface water) inside a drawn
+// region so we can tell the user straight away when there is nothing to
+// survey — water, sand, rock or pavement — instead of inventing crop zones.
+// Only runs when Earth Engine is connected; otherwise the analysis layer's
+// own geographic assessment covers it.
+
+function classifyCover(ndvi, ndwi) {
+  if (ndwi != null && ndwi > 0.18) {
+    return { plantable: false, cover: 'open water', note: 'Open water — no plant matter detected.' };
+  }
+  if (ndvi == null) {
+    return { plantable: true, cover: 'unknown', note: '' };
+  }
+  if (ndvi < 0.12) {
+    return { plantable: false, cover: 'bare ground', note: 'No vegetation detected — bare ground, sand, rock or pavement.' };
+  }
+  if (ndvi < 0.22) {
+    return { plantable: false, cover: 'sparse scrub', note: 'Only sparse scrub detected — not enough crop canopy to survey.' };
+  }
+  if (ndvi < 0.4) {
+    return { plantable: true, cover: 'light vegetation', note: 'Light vegetation — thin or early-season canopy.' };
+  }
+  return { plantable: true, cover: 'dense vegetation', note: 'Healthy vegetation detected.' };
+}
+
+function probeRegion(region) {
+  if (!eeReady || typeof ee === 'undefined') return;
+  try {
+    const [w, s, e, n] = region.bounds;
+    const rect = ee.Geometry.Rectangle([w, s, e, n]);
+    const comp = sentinelComposite(rect);
+    const idx = comp.normalizedDifference(['B8', 'B4']).rename('ndvi')
+      .addBands(comp.normalizedDifference(['B3', 'B8']).rename('ndwi'));
+
+    region.probing = true;
+    renderRegionList();
+    idx.reduceRegion({
+      reducer: ee.Reducer.mean(),
+      geometry: rect,
+      scale: 30,
+      maxPixels: 1e9,
+      bestEffort: true
+    }).evaluate((res, err) => {
+      region.probing = false;
+      if (err || !res) {
+        console.warn('[FieldLoop] land-cover probe failed:', err);
+        renderRegionList();
+        return;
+      }
+      const verdict = classifyCover(res.ndvi, res.ndwi);
+      region.probe = {
+        ndvi: res.ndvi, ndwi: res.ndwi,
+        plantable: verdict.plantable, cover: verdict.cover, note: verdict.note
+      };
+      renderRegionList();
+      if (!verdict.plantable) {
+        setMapStatus(region.label + ': ' + verdict.note + ' It will be skipped in the survey.');
+      }
+    });
+  } catch (err) {
+    region.probing = false;
+    console.warn('[FieldLoop] land-cover probe failed:', err);
+  }
+}
+
 function populateBandSelect() {
   const sel = document.getElementById('band-select');
   if (!sel) return;
@@ -573,7 +654,7 @@ function connectEarthEngine() {
 function eeInitialize(cfg) {
   ee.initialize(
     null, null,
-    () => { eeReady = true; addBandLayer(); },
+    () => { eeReady = true; addBandLayer(); regions.forEach(probeRegion); },
     (err) => { console.warn('[FieldLoop] EE init error:', err); setMapStatus('Earth Engine init failed — continuing on base imagery.'); },
     null,
     cfg.EE_PROJECT || null

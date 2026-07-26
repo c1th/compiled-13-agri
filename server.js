@@ -46,8 +46,19 @@ const TREATMENT_IDS = BIOLOGICAL_CATALOG.map((p) => p.id).concat('none');
 const PLAN_SCHEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['summary', 'zones'],
+  required: ['region_assessment', 'summary', 'zones'],
   properties: {
+    // What is actually on the ground here. If it isn't farmable, zones is empty.
+    region_assessment: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['land_cover', 'plantable', 'note'],
+      properties: {
+        land_cover: { type: 'string' },
+        plantable: { type: 'boolean' },
+        note: { type: 'string' }
+      }
+    },
     summary: {
       type: 'object',
       additionalProperties: false,
@@ -106,7 +117,20 @@ Satellite imagery flagged crop-stress zones in a field. Your job: produce a real
 treatment plan that separates pest pressure (treatable) from irrigation/nitrogen issues
 (must NOT be sprayed), and prescribe the single best-matched biological for each pest zone.
 
-Region bounds [W,S,E,N]: ${JSON.stringify(bounds)} (~${Math.round(total_acres || 160)} acres of row crops, Iowa, late July).
+Region bounds [W,S,E,N]: ${JSON.stringify(bounds)} (~${Math.round(total_acres || 160)} acres).
+
+STEP 1 — identify the ground. Use your geographic knowledge of these exact
+coordinates to fill region_assessment. Set plantable=false when the area is not
+cultivated farmland: open ocean, sea or large lake, desert or bare rock, ice or
+tundra, dense urban core, or closed-canopy forest. In that case write land_cover
+as a short human phrase ("open ocean", "Sahara desert sand sea", "central Tokyo")
+and note as one plain sentence telling the user what is there and that there is
+no plant matter to survey — then return an EMPTY zones array and a summary with
+all values 0. Do not invent crops on ground that has none.
+
+Only if the area is genuinely croppable (plantable=true) continue to STEP 2.
+
+STEP 2 — produce the treatment plan.
 
 Biological catalog to prescribe from (availability is unlimited — recommend the
 agronomically optimal product and quantity, never a compromise based on stock):
@@ -147,6 +171,11 @@ dollars_saved = (total_acres - flagged_acres) x 34, rounded.`;
     if (!textBlock) throw new Error('no text block in response');
     const plan = JSON.parse(textBlock.text);
 
+    // Nothing farmable here — return the assessment with no zones.
+    if (plan.region_assessment && plan.region_assessment.plantable === false) {
+      plan.zones = [];
+    }
+
     // Only include products the plan actually prescribes.
     const used = new Set(plan.zones.map((z) => z.treatment_id));
     const treatments = {};
@@ -158,6 +187,7 @@ dollars_saved = (total_acres - flagged_acres) x 34, rounded.`;
 
     res.json({
       source: 'claude',
+      region_assessment: plan.region_assessment,
       meta: {
         name: 'Selected region',
         bounds,

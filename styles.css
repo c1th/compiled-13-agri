@@ -123,6 +123,23 @@ body {
 
 .region-acres { color: var(--text); }
 
+/* Land-cover verdict from the Earth Engine probe. */
+.cover-tag {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  padding: 2px 7px;
+  white-space: nowrap;
+}
+
+.cover-tag.ok { background: rgba(74, 222, 128, 0.14); color: var(--accent); }
+
+.cover-tag.bad { background: rgba(90, 155, 212, 0.16); color: #7FB6E8; }
+
+.cover-tag.pending { background: rgba(139, 152, 165, 0.14); color: var(--muted); }
+
 .region-tag {
   background: rgba(74, 222, 128, 0.16);
   border: none;
