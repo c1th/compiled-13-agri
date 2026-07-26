@@ -32,39 +32,121 @@ function treatableProducts(data) {
     .filter((k) => k !== 'none' && data.zones.some((z) => z.treatment_id === k));
 }
 
+// Field diagonal in km — the yardstick for sizing battery range.
+function fieldSpanKm(data) {
+  const b = (data.meta && data.meta.bounds) || [0, 0, 0.01, 0.01];
+  const [w, s, e, n] = b;
+  const latKm = (n - s) * 111.32;
+  const lonKm = (e - w) * 111.32 * Math.cos(((n + s) / 2) * Math.PI / 180);
+  return Math.max(0.4, Math.sqrt(latKm * latKm + lonKm * lonKm));
+}
+
+// Gallons the plan demands per product.
+function demandByProduct(data) {
+  const demand = {};
+  for (const z of data.zones) {
+    if (z.treatment_id === 'none') continue;
+    demand[z.treatment_id] = (demand[z.treatment_id] || 0) + z.volume_gal;
+  }
+  return demand;
+}
+
+function zoneCountByProduct(data) {
+  const counts = {};
+  for (const z of data.zones) {
+    if (z.treatment_id === 'none') continue;
+    counts[z.treatment_id] = (counts[z.treatment_id] || 0) + 1;
+  }
+  return counts;
+}
+
+// Largest single-zone volume for a product — a tank smaller than this could
+// never service that zone at all.
+function maxZoneVolume(data, product) {
+  return data.zones
+    .filter((z) => z.treatment_id === product)
+    .reduce((m, z) => Math.max(m, z.volume_gal), 0);
+}
+
+// Size one drone so it is actually usable: enough range to cross the field and
+// return, and a tank just big enough for its share of the product's demand.
+// Oversized tanks are what leave drones idle — one drone swallows every zone
+// and the rest have nothing to do — so the share is kept tight, floored at the
+// biggest single zone so nothing becomes unreachable.
+function sizeDrone(data, product, sharePerDrone) {
+  const floor = maxZoneVolume(data, product);
+  return {
+    tank_gal: Number(Math.max(1, floor, sharePerDrone * 1.02).toFixed(1)),
+    battery_km: Number((fieldSpanKm(data) * 3 + 3).toFixed(1))
+  };
+}
+
 function addDrone(data, preset) {
   const products = treatableProducts(data);
+  const demand = demandByProduct(data);
   fleetSeq += 1;
+  const product = products[(fleetSeq - 1) % Math.max(1, products.length)] || 'none';
+  const peers = fleet.filter((d) => d.carries === product).length + 1;
+  const sized = sizeDrone(data, product, (demand[product] || 4) / peers);
+  const edge = perimeterPoint((fleetSeq - 1) / 6);
   fleet.push(Object.assign({
     id: 'D' + fleetSeq,
-    carries: products[(fleetSeq - 1) % Math.max(1, products.length)] || 'none',
-    tank_gal: 5,
-    battery_km: 12,
-    x: 0.5,
-    y: 0.5
+    carries: product,
+    tank_gal: sized.tank_gal,
+    battery_km: sized.battery_km,
+    x: edge.x,
+    y: edge.y
   }, preset || {}));
   saveFleet();
 }
 
-// Demo fleet: launch points spread around the field edge, tanks and batteries
-// varied, products spread across whatever the plan actually prescribes.
+// Demo fleet sized against the actual plan: drones are allocated per product
+// in proportion to that product's demand (never more drones than it has
+// zones), tanks split that demand between them, and range is derived from the
+// field's own diagonal. The result is a fleet where every drone has work.
 function randomizeFleet(data, quiet) {
   const products = treatableProducts(data);
-  const count = Math.max(3, Math.min(6, products.length + 2));
   fleet = [];
   fleetSeq = 0;
-  for (let i = 0; i < count; i++) {
-    const t = i / count;
-    const edge = perimeterPoint(t + Math.random() * 0.06);
-    fleetSeq += 1;
-    fleet.push({
-      id: 'D' + fleetSeq,
-      carries: products.length ? products[i % products.length] : 'none',
-      tank_gal: Number((3 + Math.random() * 5).toFixed(1)),
-      battery_km: Number((8 + Math.random() * 14).toFixed(1)),
-      x: edge.x,
-      y: edge.y
-    });
+  if (!products.length) { saveFleet(); return; }
+
+  const demand = demandByProduct(data);
+  const zoneCounts = zoneCountByProduct(data);
+  const totalDemand = products.reduce((t, k) => t + (demand[k] || 0), 0) || 1;
+  const target = Math.max(3, Math.min(6, products.length + 2));
+
+  // Allocate at least one drone per product, then hand out the remainder by
+  // demand share — capped so a product never has more drones than zones.
+  const alloc = {};
+  products.forEach((k) => { alloc[k] = 1; });
+  let remaining = Math.max(0, target - products.length);
+  const byShare = products.slice().sort((a, b) => (demand[b] || 0) - (demand[a] || 0));
+  let i = 0;
+  while (remaining > 0) {
+    const k = byShare[i % byShare.length];
+    if (alloc[k] < (zoneCounts[k] || 1)) { alloc[k] += 1; remaining -= 1; }
+    else if (byShare.every((p) => alloc[p] >= (zoneCounts[p] || 1))) break;
+    i += 1;
+    if (i > 200) break;
+  }
+
+  let slot = 0;
+  const totalDrones = products.reduce((t, k) => t + alloc[k], 0);
+  for (const product of products) {
+    for (let d = 0; d < alloc[product]; d++) {
+      const sized = sizeDrone(data, product, (demand[product] || 4) / alloc[product]);
+      const edge = perimeterPoint(slot / totalDrones + Math.random() * 0.04);
+      fleetSeq += 1;
+      fleet.push({
+        id: 'D' + fleetSeq,
+        carries: product,
+        tank_gal: sized.tank_gal,
+        battery_km: sized.battery_km,
+        x: edge.x,
+        y: edge.y
+      });
+      slot += 1;
+    }
   }
   saveFleet();
   if (!quiet) lastRoutes = null;
