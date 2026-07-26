@@ -1,0 +1,1 @@
+study_id,doi,target_pest,nontarget_species,nontarget_order,construct_len_nt,max_contiguous_match_nt,n_21mers_perfect,n_21mers_1mm,n_21mers_2mm,matched_gene,matched_gene_essential,dose_ng_per_uL,exposure_route,duration_days,endpoint,effect_size,control_effect_size,significant,match_source,normalization_rule,notes

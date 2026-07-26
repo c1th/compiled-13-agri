@@ -1,0 +1,118 @@
+{
+  "generated_by": "scripts/fetch_data.py",
+  "species_expected": [
+    "apis_mellifera",
+    "coccinella_septempunctata",
+    "chrysoperla_carnea",
+    "danaus_plexippus",
+    "eisenia_fetida",
+    "daphnia_magna",
+    "homo_sapiens",
+    "leptinotarsa_decemlineata",
+    "diabrotica_virgifera",
+    "spodoptera_frugiperda"
+  ],
+  "species": {
+    "apis_mellifera": {
+      "path": "data/transcriptomes/apis_mellifera.cds.fasta",
+      "bytes": 40146385,
+      "sha256": "38e3a192db44034afaf096e33f6f56e36c8443916dad6c629d3c42eea2eaf8d2",
+      "n_records": 9999,
+      "label": "Apis mellifera",
+      "taxid": 7460,
+      "role": "nontarget"
+    },
+    "coccinella_septempunctata": {
+      "path": "data/transcriptomes/coccinella_septempunctata.cds.fasta",
+      "bytes": 31211,
+      "sha256": "281a2bbcb9065bff281b3fe4ceb5faabe858c911e5b15ec3977ffdf460fedd50",
+      "n_records": 29,
+      "label": "Coccinella septempunctata",
+      "taxid": 41155,
+      "role": "nontarget"
+    },
+    "chrysoperla_carnea": {
+      "path": "data/transcriptomes/chrysoperla_carnea.cds.fasta",
+      "bytes": 19859880,
+      "sha256": "de2556647cac46c23d9a08ffe05c90294371f6096a808f640866ec55892951c7",
+      "n_records": 8000,
+      "label": "Chrysoperla carnea",
+      "taxid": 189513,
+      "role": "nontarget"
+    },
+    "danaus_plexippus": {
+      "path": "data/transcriptomes/danaus_plexippus.cds.fasta",
+      "bytes": 30316596,
+      "sha256": "9de4f7c47d0d2a48be49056fae2e7d3ee485903d10571cbbad3b635c36f20788",
+      "n_records": 9999,
+      "label": "Danaus plexippus",
+      "taxid": 13037,
+      "role": "nontarget"
+    },
+    "eisenia_fetida": {
+      "path": "data/transcriptomes/eisenia_fetida.cds.fasta",
+      "bytes": 6923521,
+      "sha256": "df9553ac15fb05feb86e7c0372d05ef249af29190d0a5b599f572e94fe66f893",
+      "n_records": 9999,
+      "label": "Eisenia fetida",
+      "taxid": 6397,
+      "role": "nontarget"
+    },
+    "daphnia_magna": {
+      "path": "data/transcriptomes/daphnia_magna.cds.fasta",
+      "bytes": 27470124,
+      "sha256": "38cecb6d65062f1322a981757e2302293cf2d2e2e6554fb24d66545f478eab53",
+      "n_records": 9999,
+      "label": "Daphnia magna",
+      "taxid": 35525,
+      "role": "nontarget"
+    },
+    "homo_sapiens": {
+      "path": "data/transcriptomes/homo_sapiens.cds.fasta",
+      "bytes": 11420,
+      "sha256": "e903a1c010d93cc364bf9f36c3bc42d9db25a7901754858d5c4aa02b19a7860d",
+      "n_records": 5,
+      "label": "Homo sapiens",
+      "taxid": 9606,
+      "role": "nontarget"
+    },
+    "leptinotarsa_decemlineata": {
+      "path": "data/transcriptomes/leptinotarsa_decemlineata.cds.fasta",
+      "bytes": 31595654,
+      "sha256": "001b249fb357e3bd9cfe39f72030c032bb310267bc0caa62d1d45ee7783cb8bf",
+      "n_records": 9999,
+      "label": "Leptinotarsa decemlineata",
+      "taxid": 7539,
+      "role": "target"
+    },
+    "diabrotica_virgifera": {
+      "path": "data/transcriptomes/diabrotica_virgifera.cds.fasta",
+      "bytes": 4827482,
+      "sha256": "3e2e39044368a22301bd0d0754de9605c521d40d61cfe0c0638dd573fc91c8ff",
+      "n_records": 403,
+      "label": "Diabrotica virgifera",
+      "taxid": 50390,
+      "role": "target"
+    },
+    "spodoptera_frugiperda": {
+      "path": "data/transcriptomes/spodoptera_frugiperda.cds.fasta",
+      "bytes": 35839418,
+      "sha256": "fe18be3f6351290d4a3ff650855cfa2602bda94af454dcac1659093f228c7cce",
+      "n_records": 9999,
+      "label": "Spodoptera frugiperda",
+      "taxid": 7108,
+      "role": "target"
+    }
+  },
+  "models": {
+    "rna_fm": {
+      "repo_id": "cuhkaih/rnafm",
+      "revision": "91d4a46d28d8054a7b429955e8fc0c253ba0afd6",
+      "filename": "RNA-FM_pretrained.pth",
+      "path": "data/models/rna-fm/RNA-FM_pretrained.pth",
+      "bytes": 1194424423,
+      "sha256": "5b5d7d87b37c291ef42c140ef9edf7aea29f255fa2a4fd435f776c52e93d5e99"
+    }
+  },
+  "failures": []
+}

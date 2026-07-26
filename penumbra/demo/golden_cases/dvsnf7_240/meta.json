@@ -1,0 +1,19 @@
+{
+  "id": "dvsnf7_240",
+  "target_species": "Diabrotica_virgifera",
+  "target_gene": "Snf7",
+  "product": "DvSnf7 (MON 87411 lineage)",
+  "public_source_accession": "GU480924.1",
+  "source_header": "GU480924.1 Influenza A virus (A/swine/IL/32974/2009(H1N1)) segment 6 neuraminidase (NA) gene, complete cds",
+  "bolognesi_27mer": "TAGATGGAACCCTTACAACTATTGAAA",
+  "extract_method": "first_240_of_GU480924_core_not_found",
+  "citations": [
+    "10.1371/journal.pone.0047534",
+    "10.1007/s11248-013-9716-5",
+    "10.3389/fpls.2020.01303"
+  ],
+  "why_expected_disagreement": "Beat 1 candidate: constructs with <21 nt contiguous match are heuristic-PASS but Bachman 2020 shows 19/20 nt are inactive \u2014 conversely Galerucinae orthologs with few 21-mers remain active (heuristic may under-flag phylogenetic neighbors). Beat 2 candidate: heuristic FAIL on any \u226521 match even when dose/exposure make effect negligible for distant orders.",
+  "sequence_caveat": "Commercial DvSnf7_240 exact sequence is proprietary. This is a public-surrogate 240 bp window from GU480924.1 for demo wiring.",
+  "length_nt": 240,
+  "sequence_file": "construct.fasta"
+}

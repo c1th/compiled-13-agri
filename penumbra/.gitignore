@@ -1,0 +1,42 @@
+# Virtual env / tooling
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# Large offline assets (rebuild with scripts/fetch_data.py)
+data/transcriptomes/
+data/kmers/
+data/gbif_cache/
+data/models/
+data/embeddings/
+data/runs/
+data/derived/
+*.pkl
+*.pickle
+
+# Large sequence dumps
+*.fa.gz
+*.fasta.gz
+*.fna
+*.fna.gz
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Secrets
+.env
+.env.*
+
+# Local project notes (intentionally not versioned)
+build_outline.md
+idea.md

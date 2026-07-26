@@ -1,0 +1,17 @@
+{
+  "id": "ledprona_psmb5",
+  "target_species": "Leptinotarsa_decemlineata",
+  "target_gene": "PSMB5",
+  "product": "Ledprona / Calantha (GreenLight)",
+  "public_source_accession": "XM_023158308.1",
+  "source_header": "XM_023158308.1 PREDICTED: Leptinotarsa decemlineata proteasome subunit beta type-5 (LOC111503877), mRNA",
+  "window_start0": 275,
+  "citations": [
+    "10.3389/fpls.2021.728652",
+    "EPA-HQ-OPP-2021-0271"
+  ],
+  "why_expected_disagreement": "Industry 21nt screen is near-saturated on CPB (PASS for target) but EPA notes sparse 21-mer hits in earthworm/ladybird that still showed no bioassay effect \u2014 model should down-weight hazard at field dose relative to a naive match-count scare; conversely any residual local match in a locally abundant coleopteran could surface as Beat 2 once exposure is site-weighted.",
+  "sequence_caveat": "Commercial ledprona includes 15 bp ITS flanks (490 bp total). This FASTA is the public 460 bp PSMB5 bioactive window only.",
+  "length_nt": 460,
+  "sequence_file": "construct.fasta"
+}
