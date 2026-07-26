@@ -10,7 +10,9 @@
     document.getElementById('safety-intro').textContent =
       'No confirmed field context was found. Return to Field view, run an analysis, and confirm crop and pest.';
     runBtn.disabled = true;
-    status.textContent = 'Blocked: field context is required.';
+    status.innerHTML = 'Blocked: field context is required. <a class="btn nav-btn" href="index.html">Open Field view</a>';
+    document.getElementById('use-now-body').innerHTML =
+      '<div class="decision-empty">Start on Field view, then use the PENUMBRA panel to select a crop and pest, check the manual-confirmation box, and open this Safety Lab.</div>';
     return;
   }
 
