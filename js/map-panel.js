@@ -1,21 +1,22 @@
-// Real map panel: Leaflet (vendored) + Esri satellite tiles as the base,
-// with a Google Earth Engine NDVI overlay once the user connects (OAuth).
-// Region input: "Draw region" then two clicks = rectangle corners.
+// Map panel: Leaflet (vendored) over satellite imagery, with spectral band
+// views computed live from the tiles themselves (see js/bands.js) — no sign-in
+// and no external analysis service.
+// Region input: "Add region" then two clicks = rectangle corners; repeat to
+// survey several areas at once.
 // If Leaflet/tiles are unavailable (offline), falls back to the static
 // field.png render so the demo never blanks.
 
-let geeMap = null;
+let lmap = null;
 let regions = [];          // [{ id, label, bounds:[W,S,E,N], rect }]
 let regionSeq = 0;
 let drawCorner = null;     // first click while drawing
 let drawing = false;
 let zoneLayers = [];
-let ndviLayer = null;
+let baseLayer = null;
 let treatmentOverlays = [];
-let eeReady = false;
 let mapData = null;
 
-function initGeeMap(data) {
+function initMapPanel(data) {
   mapData = data;
   document.getElementById('field-name').textContent = data.meta.name;
   document.getElementById('field-date').textContent = data.meta.date;
@@ -25,22 +26,16 @@ function initGeeMap(data) {
 
   try {
     if (typeof L === 'undefined') throw new Error('Leaflet not available');
-    if (geeMap) { geeMap.remove(); geeMap = null; }
+    if (lmap) { lmap.remove(); lmap = null; }
     container.innerHTML = '';
-    geeMap = L.map(container, { zoomSnap: 0.25 });
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19,
-      attribution: 'Imagery: Esri World Imagery'
-    }).addTo(geeMap);
+    lmap = L.map(container, { zoomSnap: 0.25 });
+    baseLayer = createBandLayer(currentBandId);
+    baseLayer.addTo(lmap);
     fitAllRegions();
     drawRegionRects();
     renderZonesOnMap(data);
-    geeMap.on('click', onMapClick);
-    // Band layers cover the visible scene, so refetch after the view settles.
-    geeMap.on('moveend', () => { if (eeReady) addBandLayer(); });
-    setMapStatus(eeReady
-      ? 'Earth Engine \u00b7 ' + currentBand().label
-      : 'Satellite base map. Connect Earth Engine to view spectral bands.');
+    lmap.on('click', onMapClick);
+    setMapStatus('Search a location or draw a region to begin.');
   } catch (err) {
     console.warn('[FieldLoop] map fallback to static image:', err.message);
     renderStaticFallback(container, data);
@@ -55,10 +50,8 @@ function initGeeMap(data) {
   updateRegionReadout();
 
   const drawBtn = document.getElementById('draw-region');
-  const geeBtn = document.getElementById('gee-connect');
   const clearBtn = document.getElementById('clear-regions');
   if (drawBtn) drawBtn.onclick = toggleDraw;
-  if (geeBtn) geeBtn.onclick = connectEarthEngine;
   if (clearBtn) clearBtn.onclick = clearRegions;
 }
 
@@ -121,7 +114,7 @@ function unionBounds() {
 
 function fitAllRegions() {
   const [w, s, e, n] = unionBounds();
-  geeMap.fitBounds([[s, w], [n, e]], { padding: [24, 24] });
+  lmap.fitBounds([[s, w], [n, e]], { padding: [24, 24] });
 }
 
 function drawRegionRects() {
@@ -130,7 +123,7 @@ function drawRegionRects() {
     const [w, s, e, n] = r.bounds;
     r.rect = L.rectangle([[s, w], [n, e]], {
       color: '#4ADE80', weight: 2, fill: false, dashArray: '6 4', interactive: false
-    }).addTo(geeMap);
+    }).addTo(lmap);
     if (regions.length > 1) {
       r.rect.bindTooltip(r.label, {
         permanent: true, direction: 'top', className: 'region-tag', offset: [0, -2]
@@ -144,7 +137,7 @@ function toggleDraw() {
   drawCorner = null;
   const btn = document.getElementById('draw-region');
   btn.textContent = drawing ? 'Click two corners\u2026' : 'Add region';
-  if (geeMap) geeMap.getContainer().style.cursor = drawing ? 'crosshair' : '';
+  if (lmap) lmap.getContainer().style.cursor = drawing ? 'crosshair' : '';
   if (drawing) setMapStatus('Click one corner of the area to survey, then the opposite corner.');
 }
 
@@ -194,8 +187,8 @@ function coverTag(r) {
   if (r.probing) return '<span class="cover-tag pending">checking…</span>';
   if (!r.probe) return '';
   const cls = r.probe.plantable ? 'cover-tag ok' : 'cover-tag bad';
-  const ndvi = r.probe.ndvi == null ? '' : ' NDVI ' + r.probe.ndvi.toFixed(2);
-  return '<span class="' + cls + '" title="' + r.probe.note + '">' + r.probe.cover + ndvi + '</span>';
+  const pct = r.probe.vegFraction == null ? '' : ' ' + Math.round(r.probe.vegFraction * 100) + '% green';
+  return '<span class="' + cls + '" title="' + r.probe.note + '">' + r.probe.cover + pct + '</span>';
 }
 
 // Union of all regions — the extent the merged plan is expressed in.
@@ -257,7 +250,7 @@ function updateRegionReadout() {
 // diagnosis result stays unmistakable; treated zones get an invisible marker
 // purely as a hover target for the tooltip.
 function renderZonesOnMap(data) {
-  if (!geeMap) return;
+  if (!lmap) return;
   mapData = data;
   for (const layer of zoneLayers) layer.remove();
   zoneLayers = [];
@@ -275,7 +268,7 @@ function renderZonesOnMap(data) {
       treatmentOverlays.push(
         L.imageOverlay(url, [[s, w], [n, e]], {
           opacity: 0.88, interactive: false, className: 'treatment-overlay'
-        }).addTo(geeMap)
+        }).addTo(lmap)
       );
     } catch (err) {
       console.warn('[FieldLoop] treatment overlay failed for ' + r.id + ':', err);
@@ -290,7 +283,7 @@ function renderZonesOnMap(data) {
       ? { radius: 9 + zone.area_acres * 3, color: t.color, weight: 2, dashArray: '5 4', fill: false }
       // invisible hit target — the heatmap is the visual
       : { radius: 8 + zone.area_acres * 3, stroke: false, fill: true, fillOpacity: 0.01 }
-    ).addTo(geeMap);
+    ).addTo(lmap);
     marker.bindTooltip(zoneTooltipHtml(zone, t), { className: 'map-tooltip-leaflet', sticky: true });
     zoneLayers.push(marker);
   }
@@ -403,12 +396,12 @@ async function runSearch(query) {
 }
 
 function goTo(lat, lon, bounds) {
-  if (!geeMap) return;
+  if (!lmap) return;
   if (bounds) {
     const [w, s, e, n] = bounds;
-    geeMap.fitBounds([[s, w], [n, e]], { padding: [20, 20], maxZoom: 15 });
+    lmap.fitBounds([[s, w], [n, e]], { padding: [20, 20], maxZoom: 15 });
   } else {
-    geeMap.setView([lat, lon], 14);
+    lmap.setView([lat, lon], 14);
   }
 }
 
@@ -417,159 +410,48 @@ function setSearchStatus(text) {
   if (el) el.textContent = text;
 }
 
-// ---------- Earth Engine band layers ----------
+// ---------- Land-cover check ----------
 //
-// Each preset turns a cloud-reduced Sentinel-2 composite into one viewable
-// layer. `image` returns the ee.Image to draw, `vis` is its visualisation.
-// `note` is written in plain language for the end user — it is the label that
-// tells them what they are actually looking at.
-
-const EE_BANDS = [
-  {
-    id: 'ndvi',
-    label: 'Vegetation (NDVI)',
-    note: 'Plant vigour. Green = dense healthy canopy, orange/red = bare soil, rock, sand or water.',
-    scaleNote: 'bare → dense canopy',
-    palette: ['#9e2f00', '#d95f0e', '#fec44f', '#addd8e', '#31a354', '#00602a'],
-    image: (s) => s.normalizedDifference(['B8', 'B4']).rename('ndvi'),
-    vis: { min: -0.1, max: 0.85 }
-  },
-  {
-    id: 'truecolor',
-    label: 'True colour',
-    note: 'Natural colour — roughly what your eye would see from orbit.',
-    image: (s) => s,
-    vis: { bands: ['B4', 'B3', 'B2'], min: 0, max: 3000 }
-  },
-  {
-    id: 'water',
-    label: 'Water (NDWI)',
-    note: 'Surface water and flooding. Blue = open water, pale = dry ground.',
-    scaleNote: 'dry → open water',
-    palette: ['#f7f4e9', '#d5e8e4', '#7fcdbb', '#2c7fb8', '#08306b'],
-    image: (s) => s.normalizedDifference(['B3', 'B8']).rename('ndwi'),
-    vis: { min: -0.4, max: 0.5 }
-  },
-  {
-    id: 'moisture',
-    label: 'Soil moisture (NDMI)',
-    note: 'Moisture held in the canopy and soil. Blue = wet, brown = dry — this is what separates drought stress from pest damage.',
-    scaleNote: 'dry → wet',
-    palette: ['#8c510a', '#d8b365', '#f6e8c3', '#c7eae5', '#5ab4ac', '#01665e'],
-    image: (s) => s.normalizedDifference(['B8', 'B11']).rename('ndmi'),
-    vis: { min: -0.4, max: 0.5 }
-  },
-  {
-    id: 'infrared',
-    label: 'False-colour infrared',
-    note: 'Near-infrared composite. Living vegetation glows red — the classic way to spot crop vs bare ground.',
-    image: (s) => s,
-    vis: { bands: ['B8', 'B4', 'B3'], min: 0, max: 3500 }
-  },
-  {
-    id: 'agriculture',
-    label: 'Agriculture (SWIR)',
-    note: 'Short-wave infrared composite. Highlights crop type and residue; bright green = vigorous growth.',
-    image: (s) => s,
-    vis: { bands: ['B11', 'B8', 'B2'], min: 0, max: 3500 }
-  }
-];
-
-let currentBandId = 'ndvi';
-
-function currentBand() {
-  return EE_BANDS.find((b) => b.id === currentBandId) || EE_BANDS[0];
-}
-
-// Cloud-reduced Sentinel-2 composite over the last 90 days for the given area.
-function sentinelComposite(region) {
-  const end = new Date();
-  const start = new Date(end.getTime() - 90 * 24 * 3600 * 1000);
-  return ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
-    .filterBounds(region)
-    .filterDate(start.toISOString().slice(0, 10), end.toISOString().slice(0, 10))
-    .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 40))
-    .median();
-}
-
-// ---------- Land-cover probe ----------
-//
-// Measures mean NDVI (plant vigour) and NDWI (surface water) inside a drawn
-// region so we can tell the user straight away when there is nothing to
-// survey — water, sand, rock or pavement — instead of inventing crop zones.
-// Only runs when Earth Engine is connected; otherwise the analysis layer's
-// own geographic assessment covers it.
-
-function classifyCover(ndvi, ndwi) {
-  if (ndwi != null && ndwi > 0.18) {
-    return { plantable: false, cover: 'open water', note: 'Open water — no plant matter detected.' };
-  }
-  if (ndvi == null) {
-    return { plantable: true, cover: 'unknown', note: '' };
-  }
-  if (ndvi < 0.12) {
-    return { plantable: false, cover: 'bare ground', note: 'No vegetation detected — bare ground, sand, rock or pavement.' };
-  }
-  if (ndvi < 0.22) {
-    return { plantable: false, cover: 'sparse scrub', note: 'Only sparse scrub detected — not enough crop canopy to survey.' };
-  }
-  if (ndvi < 0.4) {
-    return { plantable: true, cover: 'light vegetation', note: 'Light vegetation — thin or early-season canopy.' };
-  }
-  return { plantable: true, cover: 'dense vegetation', note: 'Healthy vegetation detected.' };
-}
+// Reads the actual imagery inside a drawn region and decides whether there is
+// any crop canopy there, so we never invent zones on ocean, sand or rooftops.
+// Runs on the tiles the map already shows — no sign-in, no external service.
 
 function probeRegion(region) {
-  if (!eeReady || typeof ee === 'undefined') return;
-  try {
-    const [w, s, e, n] = region.bounds;
-    const rect = ee.Geometry.Rectangle([w, s, e, n]);
-    const comp = sentinelComposite(rect);
-    const idx = comp.normalizedDifference(['B8', 'B4']).rename('ndvi')
-      .addBands(comp.normalizedDifference(['B3', 'B8']).rename('ndwi'));
-
-    region.probing = true;
-    renderRegionList();
-    idx.reduceRegion({
-      reducer: ee.Reducer.mean(),
-      geometry: rect,
-      scale: 30,
-      maxPixels: 1e9,
-      bestEffort: true
-    }).evaluate((res, err) => {
-      region.probing = false;
-      if (err || !res) {
-        console.warn('[FieldLoop] land-cover probe failed:', err);
-        renderRegionList();
-        return;
-      }
-      const verdict = classifyCover(res.ndvi, res.ndwi);
-      region.probe = {
-        ndvi: res.ndvi, ndwi: res.ndwi,
-        plantable: verdict.plantable, cover: verdict.cover, note: verdict.note
-      };
-      renderRegionList();
-      if (!verdict.plantable) {
-        setMapStatus(region.label + ': ' + verdict.note + ' It will be skipped in the survey.');
-      }
-    });
-  } catch (err) {
+  if (typeof sampleRegionCover !== 'function') return;
+  region.probing = true;
+  renderRegionList();
+  sampleRegionCover(region.bounds).then((cover) => {
     region.probing = false;
-    console.warn('[FieldLoop] land-cover probe failed:', err);
-  }
+    if (!cover) { renderRegionList(); return; }
+    region.probe = cover;
+    renderRegionList();
+    if (!cover.plantable) {
+      setMapStatus(region.label + ': ' + cover.note + ' It will be skipped in the survey.');
+    }
+  }).catch((err) => {
+    region.probing = false;
+    console.warn('[FieldLoop] land-cover check failed:', err);
+    renderRegionList();
+  });
 }
+
+// ---------- Band views ----------
+
+function currentBand() { return getBand(currentBandId); }
+
+let currentBandId = 'truecolor';
 
 function populateBandSelect() {
   const sel = document.getElementById('band-select');
   if (!sel) return;
-  sel.innerHTML = EE_BANDS
+  sel.innerHTML = BANDS
     .map((b) => '<option value="' + b.id + '"' + (b.id === currentBandId ? ' selected' : '') + '>' + b.label + '</option>')
     .join('');
   sel.onchange = () => {
     currentBandId = sel.value;
     setBandNote();
-    if (eeReady) addBandLayer();
-    else setBandNote('Connect Earth Engine to view this layer.');
+    applyBandLayer();
+    renderBandScale();
   };
   setBandNote();
 }
@@ -580,34 +462,23 @@ function setBandNote(override) {
   el.textContent = override || currentBand().note;
 }
 
-// Draws the selected band across the whole visible scene (not clipped to a
-// region) so the user can see context while choosing where to survey.
-function addBandLayer() {
-  if (!eeReady || !geeMap) return;
+// Swap the base layer for the selected band view.
+function applyBandLayer() {
+  if (!lmap) return;
   const band = currentBand();
   try {
-    const v = geeMap.getBounds();
-    const area = ee.Geometry.Rectangle([v.getWest(), v.getSouth(), v.getEast(), v.getNorth()]);
-    const image = band.image(sentinelComposite(area));
-    const vis = Object.assign({}, band.vis);
-    if (band.palette) vis.palette = band.palette;
-
-    setMapStatus('Loading ' + band.label + '…');
-    image.getMapId(vis, (obj, err) => {
-      if (err || !obj) {
-        console.warn('[FieldLoop] band layer error:', err);
-        setMapStatus(band.label + ' unavailable here — showing base imagery.');
-        return;
-      }
-      if (ndviLayer) ndviLayer.remove();
-      ndviLayer = L.tileLayer(obj.urlFormat, { opacity: 0.8, maxZoom: 19 }).addTo(geeMap);
-      for (const o of treatmentOverlays) o.bringToFront();
-      setMapStatus('Earth Engine · ' + band.label + ' (Sentinel-2, last 90 days)');
-      renderBandScale();
-    });
+    const next = createBandLayer(band.id);
+    next.addTo(lmap);
+    next.bringToBack();
+    if (baseLayer) baseLayer.remove();
+    baseLayer = next;
+    for (const o of treatmentOverlays) o.bringToFront();
+    setMapStatus(band.raw
+      ? 'Satellite imagery'
+      : band.label + ' — computed live from the imagery');
   } catch (err) {
     console.warn('[FieldLoop] band layer failed:', err);
-    setMapStatus('Band layer failed — continuing on base imagery.');
+    setMapStatus('Band view unavailable — showing plain imagery.');
   }
 }
 
@@ -619,46 +490,9 @@ function renderBandScale() {
   if (!band.palette) { el.innerHTML = ''; el.hidden = true; return; }
   el.hidden = false;
   el.innerHTML =
-    '<span class="ramp-label">' + band.label.replace(/ \(.*\)/, '') + '</span>' +
+    '<span class="ramp-label">' + (band.scale || '').split(' \u2192 ')[0] + '</span>' +
     '<span class="ramp-bar" style="background:linear-gradient(90deg,' + band.palette.join(',') + ')"></span>' +
-    '<span class="ramp-label">' + (band.scaleNote || '') + '</span>';
-}
-
-// ---------- Earth Engine ----------
-
-function connectEarthEngine() {
-  const cfg = window.FIELDLOOP_CONFIG || {};
-  try {
-    if (typeof ee === 'undefined') throw new Error('Earth Engine library failed to load');
-    if (!cfg.EE_CLIENT_ID) {
-      setMapStatus('Set EE_CLIENT_ID (and EE_PROJECT) in js/config.js to connect Earth Engine.');
-      return;
-    }
-    setMapStatus('Opening Google sign-in…');
-    ee.data.authenticateViaOauth(
-      cfg.EE_CLIENT_ID,
-      () => eeInitialize(cfg),
-      (err) => { console.warn('[FieldLoop] EE auth error:', err); setMapStatus('Earth Engine sign-in failed — continuing on base imagery.'); },
-      null,
-      () => ee.data.authenticateViaPopup(
-        () => eeInitialize(cfg),
-        (err) => { console.warn('[FieldLoop] EE popup auth error:', err); setMapStatus('Earth Engine sign-in failed — continuing on base imagery.'); }
-      )
-    );
-  } catch (err) {
-    console.warn('[FieldLoop] EE connect failed:', err);
-    setMapStatus('Earth Engine unavailable — continuing on base imagery.');
-  }
-}
-
-function eeInitialize(cfg) {
-  ee.initialize(
-    null, null,
-    () => { eeReady = true; addBandLayer(); regions.forEach(probeRegion); },
-    (err) => { console.warn('[FieldLoop] EE init error:', err); setMapStatus('Earth Engine init failed — continuing on base imagery.'); },
-    null,
-    cfg.EE_PROJECT || null
-  );
+    '<span class="ramp-label">' + (band.scale || '').split(' \u2192 ')[1] + '</span>';
 }
 
 // ---------- Offline fallback ----------

@@ -25,10 +25,10 @@ function safeInit(name, fn) {
 }
 
 // Re-render the data-driven panels without tearing down the live map (which
-// would throw away the user's drawn region and Earth Engine session).
+// would throw away the user's drawn regions and map view).
 function refreshDataPanels() {
   for (const p of PANEL_INITS) {
-    if (p.name === 'geemap') {
+    if (p.name === 'map') {
       try { renderZonesOnMap(DATA); renderMapLegend(DATA); } catch (err) {
         console.error('[FieldLoop] map refresh failed:', err);
       }
@@ -83,7 +83,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'r' || e.key === 'R') resetAllPanels();
 });
 
-registerPanel('geemap', initGeeMap);
+registerPanel('map', initMapPanel);
 registerPanel('breakdown', initBreakdown);
 registerPanel('analyze', initAnalyze);
 registerPanel('procure', initProcure);
