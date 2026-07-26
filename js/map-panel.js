@@ -305,6 +305,8 @@ function renderMapLegend(data) {
   const legend = document.getElementById('map-legend');
   if (!legend) return;
   legend.innerHTML = '';
+  const caption = document.getElementById('legend-caption');
+  if (caption) caption.hidden = !data.zones.some((z) => z.treatment_id !== 'none');
   for (const key of Object.keys(data.treatments)) {
     const t = data.treatments[key];
     if (key !== 'none' && !data.zones.some((z) => z.treatment_id === key)) continue;

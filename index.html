@@ -18,8 +18,15 @@
   </header>
 
   <main class="layout">
+    <ol class="steps" aria-label="How to use">
+      <li><span class="step-n">1</span> Search for your field, or type coordinates</li>
+      <li><span class="step-n">2</span> Draw a box around each area to survey</li>
+      <li><span class="step-n">3</span> Run the analysis</li>
+      <li><span class="step-n">4</span> Review the plan and order what it needs</li>
+    </ol>
+
     <section class="panel map-panel">
-      <div class="panel-title">Field map &mdash; treatment intensity</div>
+      <div class="panel-title">Field map</div>
       <form class="search-bar" id="search-form" autocomplete="off">
         <input id="search-input" class="inv-input search-input" type="text"
                placeholder="Search a place, or type coordinates as lat, lon">
@@ -36,6 +43,10 @@
       <p class="band-note" id="band-note"></p>
       <div id="gee-map" class="gee-map"></div>
       <div class="band-scale" id="band-scale" hidden></div>
+      <p class="legend-caption" id="legend-caption" hidden>
+        Treatment plan overlay &mdash; colour is the prescribed product,
+        brightness is how heavily it is applied. Hover any zone for details.
+      </p>
       <div class="map-legend" id="map-legend"></div>
       <div class="region-list" id="region-list"></div>
       <div class="region-readout num" id="region-readout"></div>
