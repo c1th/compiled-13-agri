@@ -32,10 +32,13 @@ What must stay visually dominant: the **DO NOT SPRAY** zones — dashed outline,
 no fill, own group rendered last in the breakdown. They prove the system
 *diagnoses* rather than just detects.
 
-The reduction stat and dollars-saved card were **removed from the UI** at the
-user's request. `summary.pct_reduction` / `dollars_saved` still exist in the
-data contract — do not re-add cards for them. Acreage now lives on one line
-under the map: region bounds · total field · acres treated.
+The dollars-saved card was **removed from the UI** at the user's request and
+stays out. `summary.dollars_saved` still exists in the data contract — do not
+re-add a card for it. **Partially reversed 2026-07-25:** the user asked for a
+post-analysis impact strip with real derived numbers, so the pesticide-savings
+percentage is back on screen inside the impact panel (js/impact.js) — not as a
+standalone KPI card. Acreage still lives on one line under the map: region
+bounds · total field · acres treated.
 
 ## Hard constraints — do not deviate
 
@@ -112,8 +115,10 @@ to the teammate; do not wire navigation back to them without being asked.
 
 - `index.html` — dashboard: how-to-use steps, location search, map with band
   selector and multi-region drawing, weighted treatment layer, recommended
-  distribution, run-analysis bar, procurement. **No KPI row and no inventory
-  panel** — both removed on request.
+  distribution, pesticide shed, run-analysis bar, impact strip, procurement.
+  (The old KPI row and old inventory panel were removed on request; the shed
+  and impact strip are their 2026-07-25 replacements, built to different
+  rules — see the sections below.)
 - `drones.html` — drone operations: static zone map, per-drone config
   (origin via map click, pesticide, tank gallons), recommended assignments,
   swarm mount.
@@ -177,12 +182,23 @@ the demo can look fake.
 
 ## Treatment selection — optimal, not stock-constrained
 
-There is **no inventory input**. The analysis layer prescribes the
-agronomically optimal biological per zone from a fixed catalog
-(`BIOLOGICAL_CATALOG` in `server.js`, mirrored as `TREATMENT_CATALOG` in
-`data/catalog.js`), with no quantity ceiling — availability is assumed
-unlimited because more can always be bought. Rates step up 1.25x on zones with
-severity > 0.8. Keep the two catalog copies in sync when editing.
+The analysis layer prescribes the agronomically optimal biological per zone
+from a fixed catalog (`BIOLOGICAL_CATALOG` in `server.js`, mirrored as
+`TREATMENT_CATALOG` in `data/catalog.js`), with no quantity ceiling —
+availability is assumed unlimited because more can always be bought. Rates
+step up 1.25x on zones with severity > 0.8. Keep the two catalog copies in
+sync when editing.
+
+**Pesticide shed (re-added 2026-07-25 at the user's request, in a new form —
+supersedes the old "no inventory input" rule).** `js/shed.js` +
+`data/crops.js`: the grower records what they already have, with a crop
+dropdown that surfaces common products per crop (short local crop→pest→product
+DB) and an AI path (`/api/crop-intel`) where Claude identifies the crop from
+the region coordinates and generates a tailored list. The hard rule that
+survives: **stock never constrains the prescription** — the plan is still
+optimal; on-hand gallons only net down the procurement order quantities
+(`initProcure` reads `getShedInventory()`). Shed state lives in localStorage
+(`fieldloop_shed`) and is cleared by the "R" reset.
 
 ## Credentials
 
@@ -258,8 +274,10 @@ in a real run and report back if the canvas doesn't render or console errors.
 - Added the live analysis trace (streamed reasoning + pipeline telemetry) and
   made the dashboard standalone by removing all drone-page navigation.
 - Removed at the user's request — **do not reintroduce**: AI-agronomist panel,
-  Channel3 procurement proxy, KPI row (pesticide-reduction + dollars-saved
-  cards), pesticide-inventory panel.
+  Channel3 procurement proxy, dollars-saved card. (The KPI-row removal and the
+  old pesticide-inventory panel were **reversed on 2026-07-25** — the user asked
+  for the crop-aware pesticide shed and the post-analysis impact strip; see
+  their sections above.)
 - Pivoted the map from a static image to Leaflet with region drawing, and added
   the Claude analysis layer.
 - Removed Earth Engine entirely; band views are now computed from the imagery.

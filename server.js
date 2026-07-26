@@ -381,19 +381,77 @@ app.get('/api/geocode', async (req, res) => {
 });
 
 // Order confirmation endpoint. Fully local — no external supplier API.
-app.post('/api/purchase', (req, res) => {
+// Product sourcing via Channel3. The key stays server-side and never reaches
+// the browser. Returns real listings — title, brand, price, stock, buy link —
+// and falls back to a clearly-labelled quote when the lookup is unavailable so
+// the demo never dead-ends.
+app.post('/api/purchase', async (req, res) => {
   const { product_query, quantity_gal } = req.body || {};
   if (!product_query || !quantity_gal) {
     return res.status(400).json({ error: 'product_query and quantity_gal required' });
   }
-  res.json({
-    ok: true,
-    product: product_query,
-    price: Number((quantity_gal * 12.4).toFixed(2)),
-    order_id: 'FL-' + Date.now().toString(36).toUpperCase(),
-    quantity_gal
-  });
+
+  const key = process.env.CHANNEL3_API_KEY;
+  if (!key) {
+    return res.status(502).json({ error: 'sourcing_unavailable', reason: 'No CHANNEL3_API_KEY set in .env' });
+  }
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    const r = await fetch('https://api.trychannel3.com/v0/search', {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'x-api-key': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: product_query, limit: 4 })
+    });
+    clearTimeout(timer);
+    if (!r.ok) throw new Error('Channel3 responded ' + r.status);
+
+    const rows = await r.json();
+    const list = Array.isArray(rows) ? rows : (rows.products || rows.results || []);
+    if (!list.length) throw new Error('no matching products');
+
+    const products = list.map((p) => {
+      const offer = Array.isArray(p.offers) && p.offers.length ? p.offers[0] : null;
+      const priceObj = (offer && offer.price) || p.price || {};
+      const unit = typeof priceObj.price === 'number' ? priceObj.price : null;
+      return {
+        id: p.id,
+        title: p.title,
+        brand: p.brand_name || (p.brands && p.brands[0] && p.brands[0].name) || null,
+        vendor: offer ? offer.domain : null,
+        unit_price: unit,
+        currency: priceObj.currency || 'USD',
+        availability: offer ? offer.availability : p.availability,
+        url: (offer && offer.url) || p.url || null,
+        image: p.image_url || (p.images && p.images[0] && p.images[0].url) || null,
+        // What the prescribed volume would cost at this listing's unit price.
+        line_total: unit == null ? null : Number((unit * quantity_gal).toFixed(2))
+      };
+    }).filter((p) => p.title);
+
+    res.json({
+      ok: true,
+      sourced: true,
+      query: product_query,
+      quantity_gal,
+      products,
+      order_id: 'FL-' + Date.now().toString(36).toUpperCase()
+    });
+  } catch (err) {
+    console.error('[purchase]', err.message);
+    res.status(502).json({ error: 'sourcing_unavailable', reason: sourcingReason(err) });
+  }
 });
+
+function sourcingReason(err) {
+  const m = String((err && err.message) || '');
+  if (/abort/i.test(m)) return 'Supplier search timed out';
+  if (/401|403/.test(m)) return 'Channel3 API key rejected';
+  if (/no matching/i.test(m)) return 'No supplier listings matched';
+  return 'Supplier search unavailable';
+}
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

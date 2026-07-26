@@ -72,8 +72,9 @@ function emptyPlan(bounds) {
 function resetAllPanels() {
   sessionStorage.removeItem('fieldloop_plan');
   DATA = (typeof FIELD !== 'undefined') ? FIELD : STUB;
-  // Drop drawn regions too, so "R" really is a clean second run.
+  // Drop drawn regions and shed stock too, so "R" really is a clean second run.
   if (typeof resetRegions === 'function') resetRegions();
+  if (typeof resetShed === 'function') resetShed();
   for (const p of PANEL_INITS) safeInit(p.name, p.fn);
 }
 
@@ -85,5 +86,6 @@ document.addEventListener('keydown', (e) => {
 
 registerPanel('map', initMapPanel);
 registerPanel('breakdown', initBreakdown);
+registerPanel('shed', initShed);
 registerPanel('analyze', initAnalyze);
 registerPanel('procure', initProcure);
