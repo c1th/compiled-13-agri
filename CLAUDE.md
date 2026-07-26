@@ -274,10 +274,10 @@ in a real run and report back if the canvas doesn't render or console errors.
 - Added the live analysis trace (streamed reasoning + pipeline telemetry) and
   made the dashboard standalone by removing all drone-page navigation.
 - Removed at the user's request — **do not reintroduce**: AI-agronomist panel,
-  Channel3 procurement proxy, dollars-saved card. (The KPI-row removal and the
-  old pesticide-inventory panel were **reversed on 2026-07-25** — the user asked
-  for the crop-aware pesticide shed and the post-analysis impact strip; see
-  their sections above.)
+  dollars-saved card. (Two earlier removals were **reversed on 2026-07-25**:
+  the user asked for the crop-aware pesticide shed and the post-analysis
+  impact strip — replacing the old inventory panel and KPI row — and the
+  teammate is reinstating Channel3 sourcing in `/api/purchase`.)
 - Pivoted the map from a static image to Leaflet with region drawing, and added
   the Claude analysis layer.
 - Removed Earth Engine entirely; band views are now computed from the imagery.
