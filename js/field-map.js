@@ -1,6 +1,7 @@
-// Field map — image + absolutely-positioned zone markers.
+// Static field map — image + absolutely-positioned zone markers.
 // Positions are percentages of the container, so markers track window resize.
 // y originates at the TOP of the image (contract) — never flipped.
+// Used by the drones page and as the dashboard's offline map fallback.
 
 const DIAGNOSIS_LABELS = {
   biotic_stress: 'Biotic stress (pest)',
@@ -8,8 +9,9 @@ const DIAGNOSIS_LABELS = {
   nitrogen_deficiency: 'Nitrogen deficiency'
 };
 
-function initFieldMap(data) {
-  const wrap = document.getElementById('map-wrap');
+function initFieldMap(data, wrapEl) {
+  const wrap = wrapEl || document.getElementById('map-wrap');
+  if (!wrap) return;
   wrap.innerHTML = '';
 
   const img = document.createElement('img');
@@ -24,19 +26,19 @@ function initFieldMap(data) {
 
   for (const zone of data.zones) {
     const t = data.treatments[zone.treatment_id];
+    if (!t) continue;
     const noSpray = zone.treatment_id === 'none';
     const d = Math.round(18 + zone.area_acres * 10); // px diameter, scaled by area
 
     const marker = document.createElement('div');
     marker.className = 'zone-marker' + (noSpray ? ' nospray' : '');
+    marker.dataset.zoneId = zone.id;
     marker.style.left = (zone.x * 100) + '%';
     marker.style.top = (zone.y * 100) + '%';
     marker.style.width = d + 'px';
     marker.style.height = d + 'px';
-    if (noSpray) {
-      marker.style.borderColor = t.color;
-    } else {
-      marker.style.borderColor = t.color;
+    marker.style.borderColor = t.color;
+    if (!noSpray) {
       marker.style.background = hexToRgba(t.color, 0.25 + zone.severity * 0.55);
     }
 
@@ -52,15 +54,13 @@ function initFieldMap(data) {
     marker.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
     wrap.appendChild(marker);
   }
-
-  renderLegend(data);
 }
 
 function showTooltip(tooltip, zone, treatment) {
   const noSpray = zone.treatment_id === 'none';
   tooltip.innerHTML =
     '<div class="tip-head"><span class="num">' + zone.id + '</span> &middot; ' +
-      DIAGNOSIS_LABELS[zone.diagnosis] + '</div>' +
+      (DIAGNOSIS_LABELS[zone.diagnosis] || zone.diagnosis) + '</div>' +
     (noSpray ? '<div class="tip-nospray">DO NOT SPRAY</div>' : '') +
     '<div class="tip-row"><span>Area</span><span class="num">' + zone.area_acres.toFixed(1) + ' ac</span></div>' +
     '<div class="tip-row"><span>Severity</span><span class="num">' + Math.round(zone.severity * 100) + '%</span></div>' +
@@ -75,22 +75,6 @@ function showTooltip(tooltip, zone, treatment) {
   const dy = zone.y > 0.68 ? '-108%' : '8%';
   tooltip.style.transform = 'translate(' + dx + ', ' + dy + ')';
   tooltip.style.display = 'block';
-}
-
-function renderLegend(data) {
-  const legend = document.getElementById('map-legend');
-  legend.innerHTML = '';
-  for (const key of Object.keys(data.treatments)) {
-    const t = data.treatments[key];
-    const item = document.createElement('span');
-    item.className = 'legend-item';
-    const swatchClass = key === 'none' ? 'legend-swatch nospray' : 'legend-swatch';
-    item.innerHTML =
-      '<span class="' + swatchClass + '" style="' +
-        (key === 'none' ? 'border-color:' + t.color : 'background:' + t.color) +
-      '"></span>' + t.name;
-    legend.appendChild(item);
-  }
 }
 
 function fmtAnom(v) {

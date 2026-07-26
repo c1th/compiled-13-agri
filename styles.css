@@ -138,7 +138,51 @@ body {
 
 /* ---------- Field map ---------- */
 
-.map-panel { grid-column: 1; }
+.map-panel { grid-column: 1; grid-row: span 2; }
+
+.map-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.map-status { color: var(--muted); font-size: 12px; }
+
+.gee-map {
+  height: 460px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.gee-map.static-fallback { height: auto; border: none; }
+
+.map-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.region-readout { color: var(--muted); font-size: 12px; white-space: nowrap; }
+
+.map-tooltip-leaflet {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: var(--font-prose);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 10px 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.map-tooltip-leaflet::before { display: none; }
+
+.leaflet-container { font-family: var(--font-prose); }
 
 .map-wrap {
   position: relative;
@@ -246,6 +290,65 @@ body {
   height: 9px;
 }
 
+/* ---------- Inventory ---------- */
+
+.inventory-panel { grid-column: 2; }
+
+.inv-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.inv-input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-family: var(--font-prose);
+  font-size: 13px;
+  padding: 6px 8px;
+}
+
+.inv-name { flex: 1; min-width: 0; }
+
+.inv-num { width: 58px; text-align: right; }
+
+.inv-unit { color: var(--muted); font-size: 11px; }
+
+.inv-remove {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.inv-remove:hover { color: var(--text); }
+
+.inv-add { margin-top: 4px; font-size: 13px; padding: 6px 12px; }
+
+/* ---------- Analyze bar ---------- */
+
+.analyze-panel { grid-column: 1 / -1; }
+
+.analyze-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.analyze-status { color: var(--muted); font-size: 13px; flex: 1; }
+
+.btn-primary {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.nav-btn { text-decoration: none; font-size: 13px; padding: 7px 14px; }
+
 /* ---------- Treatment breakdown ---------- */
 
 .breakdown-panel { grid-column: 2; }
@@ -345,6 +448,21 @@ body {
 .procure-name { font-weight: 600; flex: 1; }
 
 .procure-qty { color: var(--muted); font-size: 13px; }
+
+/* ---------- Swarm mount ---------- */
+
+.swarm-panel { grid-column: 1 / -1; }
+
+.swarm-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  border: 1.5px dashed var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 14px;
+}
 
 .order-card {
   margin-top: 16px;
