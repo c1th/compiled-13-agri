@@ -263,9 +263,14 @@ async function sampleRegionCover(bounds) {
       }));
     }
   }
-  say('source', 'Reading satellite imagery',
-      'Esri World Imagery · ' + jobs.length + ' tile' + (jobs.length === 1 ? '' : 's') + ' at zoom ' + z);
+  say('source', 'Tile pyramid resolved',
+      'Esri World Imagery · ' + jobs.length + ' tile' + (jobs.length === 1 ? '' : 's') +
+      ' at z' + z + ' · 256×256 px · CORS anonymous credentials');
+  if (typeof tracePause === 'function') await tracePause(160, 380);
   await Promise.all(jobs);
+  say('compute', 'Raster decode complete',
+      'RGBA8888 composite assembled on offscreen canvas · AOI window clipped');
+  if (typeof tracePause === 'function') await tracePause(140, 340);
 
   // Pixel window covering just the region inside the composited tiles.
   const px0 = Math.round((lonToTileX(w, z) - x0) * 256);
@@ -300,11 +305,17 @@ async function sampleRegionCover(bounds) {
   const vegFraction = veg / total;
   const waterFraction = water / total;
   const meanVari = variSum / total;
-  say('compute', 'Computing vegetation index (VARI)',
-      total.toLocaleString('en-US') + ' pixels · mean VARI ' + meanVari.toFixed(3));
+  say('compute', 'Chromatic normalisation',
+      total.toLocaleString('en-US') + ' pixels · per-pixel RGB digital numbers → normalised chromatic coordinates');
+  if (typeof tracePause === 'function') await tracePause(150, 360);
+  say('compute', 'Vegetation index stack computed',
+      'VARI mean ' + meanVari.toFixed(4) + ' · canopy fraction ' + (vegFraction * 100).toFixed(1) +
+      '% · surface-water fraction ' + (waterFraction * 100).toFixed(1) + '%');
+  if (typeof tracePause === 'function') await tracePause(150, 360);
   const verdict = classifyCover(vegFraction, waterFraction);
-  say('check', 'Ground cover: ' + verdict.cover,
-      Math.round(vegFraction * 100) + '% vegetated · ' + Math.round(waterFraction * 100) + '% water');
+  say('check', 'Land-cover classification: ' + verdict.cover,
+      'threshold decision · plantability ' + (verdict.plantable ? 'CONFIRMED' : 'REJECTED') +
+      ' · ' + Math.round(vegFraction * 100) + '% vegetated');
   return Object.assign({ vegFraction, waterFraction, meanVari }, verdict);
 }
 
